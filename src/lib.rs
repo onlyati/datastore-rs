@@ -24,7 +24,7 @@
 //!                        +-----+
 //! ```
 //! 
-//! # Sample code to use the built-in thread server
+//! ## Sample code to use the built-in thread server
 //! 
 //! There is a provided function that creates a thread, initialize database then return with a `std::sync::mpsc::Sender` so other thread can send request.
 //! This a simple method to initialize this database, communication can be done by using channels.
@@ -53,7 +53,7 @@
 //! assert_eq!(ValueType::RecordPointer("ok".to_string()), data);
 //! ```
 //! 
-//! # Sample code to run without built-in thread server
+//! ## Sample code to run without built-in thread server
 //! 
 //! There is a provided function that creates a thread, initialize database then return with a `std::sync::mpsc::Sender` so other thread can send request.
 //! But it is also possible to use it as it is called directly if the application does not prefer the method mentioned earlier.
