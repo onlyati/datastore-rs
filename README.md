@@ -1,4 +1,4 @@
-# OnlyAti.Datastore **:hammer: Under development :hammer:**
+# OnlyAti.Datastore :construction: Under development :construction:
  
 This a very simple key-value data store. Pairs are stored tables according their key name.
 Each key is split for more routes at '/' character and this route lead to the place of key.
