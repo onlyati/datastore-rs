@@ -17,20 +17,20 @@ use crate::{
 /// ```
 /// use onlyati_datastore::{
 ///     enums::{ErrorKind, DatabaseAction, ValueType},
-///     utilities::start_datastore,
+///     utilities::{start_datastore, self},
 /// };
 ///
 /// let sender = start_datastore("root".to_string());
 ///
 /// // Add a new pair
-/// let (tx, rx) = std::sync::mpsc::channel::<Result<(), ErrorKind>>();
+/// let (tx, rx) = utilities::get_channel_for_set();
 /// let set_action = DatabaseAction::Set(tx, "/root/network".to_string(), "ok".to_string());
 ///
 /// sender.send(set_action).expect("Failed to send the request");
 /// rx.recv().unwrap();
 ///
 /// // Get the pair
-/// let (tx, rx) = std::sync::mpsc::channel::<Result<ValueType, ErrorKind>>();
+/// let (tx, rx) = utilities::get_channel_for_get();
 /// let get_action = DatabaseAction::Get(tx, "/root/network".to_string());
 ///
 /// sender.send(get_action).expect("Failed to send the get request");
