@@ -42,7 +42,7 @@ let (tx, rx) = std::sync::mpsc::channel::<Result<(), ErrorKind>>();
 let set_action = DatabaseAction::Set(tx, "/root/network".to_string(), "ok".to_string());
 
 sender.send(set_action).expect("Failed to send the request");
-rx.recv().unwrap(); 
+rx.recv().unwrap().unwrap(); 
 
 // Get the pair
 let (tx, rx) = std::sync::mpsc::channel::<Result<ValueType, ErrorKind>>();

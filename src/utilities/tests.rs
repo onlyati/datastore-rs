@@ -2,8 +2,156 @@
 mod tests {
     use crate::{
         controller::Database,
-        enums::{KeyType, ListType, ValueType},
+        enums::{DatabaseAction, ErrorKind, KeyType, ListType, ValueType},
+        utilities::start_datastore,
     };
+
+    #[test]
+    fn list_test() {
+        let db = Database::new("root".to_string());
+        assert_eq!(true, db.is_ok());
+        let mut db = db.unwrap();
+
+        let list: Vec<(KeyType, ValueType)> = vec![
+            (
+                KeyType::Record("/root/status/sub1".to_string()),
+                ValueType::RecordPointer("OK".to_string()),
+            ),
+            (
+                KeyType::Record("/root/status/sub2".to_string()),
+                ValueType::RecordPointer("NOK".to_string()),
+            ),
+            (
+                KeyType::Record("/root/network/dns".to_string()),
+                ValueType::RecordPointer("OK".to_string()),
+            ),
+            (
+                KeyType::Record("/root/network/www".to_string()),
+                ValueType::RecordPointer("NOK".to_string()),
+            ),
+        ];
+
+        for (key, value) in list {
+            db.insert(key, value).expect("Failed to insert");
+        }
+
+        let full_list = db
+            .list_keys(KeyType::Record("/root".to_string()), ListType::All)
+            .expect("Failed to get all keys");
+        assert_eq!(true, full_list.len() == 4);
+    }
+
+    #[test]
+    fn server_test() {
+        let sender = start_datastore("root".to_string());
+
+        // Add a new pair
+        let (tx, rx) = std::sync::mpsc::channel::<Result<(), ErrorKind>>();
+        let set_action = DatabaseAction::Set(tx, "/root/network".to_string(), "ok".to_string());
+
+        sender.send(set_action).expect("Failed to send the request");
+        rx.recv().unwrap().unwrap();
+
+        // Get the pair
+        let (tx, rx) = std::sync::mpsc::channel::<Result<ValueType, ErrorKind>>();
+        let get_action = DatabaseAction::Get(tx, "/root/network".to_string());
+
+        sender
+            .send(get_action)
+            .expect("Failed to send the get request");
+        let data = rx
+            .recv()
+            .expect("Failed to receive message")
+            .expect("Failed to get data");
+        assert_eq!(ValueType::RecordPointer("ok".to_string()), data);
+    }
+
+    #[test]
+    fn test_errors() -> Result<(), ErrorKind> {
+        let mut db = Database::new("root".to_string())?;
+
+        // Error #1
+        match db.insert(
+            KeyType::Record("/other/status".to_string()),
+            ValueType::RecordPointer("ok".to_string()),
+        ) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Key does not begin with the root table", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
+        // Error #2
+        match db.get(KeyType::Record("/root/status".to_string())) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Specified key does not exist", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
+        // Error #3
+        match db.get(KeyType::Record("root/status".to_string())) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Key must begin with '/' sign", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
+        // Error #4
+        match db.delete_key(KeyType::Table("/root/asd".to_string())) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Parameter must be a Record type", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
+        // Error #5
+        match db.delete_table(KeyType::Record("/root/asd".to_string())) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Parameter must be a Table type", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
+        // Error #6
+        match db.delete_key(KeyType::Record("/root/asd".to_string())) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Specified key does not exist", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
+        // Error #7
+        match db.delete_table(KeyType::Table("/root/asd".to_string())) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Specified key does not exist", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
+        return Ok(());
+    }
 
     #[test]
     fn basic_functions() {
@@ -127,6 +275,5 @@ mod tests {
 
         let response = db.get(KeyType::Record("/root/status/sub1".to_string()));
         assert_eq!(true, response.is_err());
-
     }
 }
