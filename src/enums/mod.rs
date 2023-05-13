@@ -1,13 +1,13 @@
 //! Enum for the crate
 
-use std::sync::mpsc::Sender;
+use crate::types::{ResultWithList, ResultWithResult, ResultWithoutResult, Table};
 use std::cmp::Ordering;
 use std::fmt::Display;
-use crate::types::Table;
+use std::sync::mpsc::Sender;
 
 ///
 /// Possible error types that database can return
-/// 
+///
 #[derive(Debug)]
 pub enum ErrorKind {
     /// The root name in the key does not match with the root table name
@@ -33,7 +33,7 @@ impl std::fmt::Display for ErrorKind {
 
 ///
 /// Key type that database accept, it can be record or another table
-/// 
+///
 #[derive(Eq, Ord, Debug, Clone)]
 pub enum KeyType {
     /// Value will be a pointer to another table
@@ -71,7 +71,7 @@ impl KeyType {
             KeyType::Record(_) => "r",
             KeyType::Table(_) => "t",
         };
-    } 
+    }
 }
 
 impl Display for KeyType {
@@ -116,7 +116,7 @@ impl PartialEq for KeyType {
 
 ///
 /// Specifiy the level for listing key function
-/// 
+///
 #[derive(PartialEq, Clone)]
 pub enum ListType {
     /// List only the current level
@@ -153,20 +153,20 @@ impl ValueType {
 
 ///
 /// Actions for built-in server
-/// 
+///
 pub enum DatabaseAction {
     /// Set or update a key-value pair
-    Set(Sender<Result<(), ErrorKind>>, String, String),
+    Set(Sender<ResultWithoutResult>, String, String),
 
     /// Get a value for a key
-    Get(Sender<Result<ValueType, ErrorKind>>, String),
+    Get(Sender<ResultWithResult>, String),
 
     /// Delete a pair
-    DeleteKey(Sender<Result<(), ErrorKind>>, String),
+    DeleteKey(Sender<ResultWithoutResult>, String),
 
     /// Delete a whole table
-    DeleteTable(Sender<Result<(), ErrorKind>>, String),
+    DeleteTable(Sender<ResultWithoutResult>, String),
 
     /// List keys from a route
-    ListKeys(Sender<Result<Vec<KeyType>, ErrorKind>>, String, ListType),
+    ListKeys(Sender<ResultWithList>, String, ListType),
 }

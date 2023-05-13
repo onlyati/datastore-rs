@@ -3,7 +3,7 @@ mod tests {
     use crate::{
         controller::Database,
         enums::{DatabaseAction, ErrorKind, KeyType, ListType, ValueType},
-        utilities::start_datastore,
+        utilities::{self, start_datastore},
     };
 
     #[test]
@@ -46,14 +46,18 @@ mod tests {
         let sender = start_datastore("root".to_string());
 
         // Add a new pair
-        let (tx, rx) = std::sync::mpsc::channel::<Result<(), ErrorKind>>();
+        let (tx, rx) = utilities::get_channel_for_set();
         let set_action = DatabaseAction::Set(tx, "/root/network".to_string(), "ok".to_string());
+        sender.send(set_action).expect("Failed to send the request");
+        rx.recv().unwrap().unwrap();
 
+        let (tx, rx) = utilities::get_channel_for_set();
+        let set_action = DatabaseAction::Set(tx, "/root/network".to_string(), "nok".to_string());
         sender.send(set_action).expect("Failed to send the request");
         rx.recv().unwrap().unwrap();
 
         // Get the pair
-        let (tx, rx) = std::sync::mpsc::channel::<Result<ValueType, ErrorKind>>();
+        let (tx, rx) = utilities::get_channel_for_get();
         let get_action = DatabaseAction::Get(tx, "/root/network".to_string());
 
         sender
@@ -63,7 +67,7 @@ mod tests {
             .recv()
             .expect("Failed to receive message")
             .expect("Failed to get data");
-        assert_eq!(ValueType::RecordPointer("ok".to_string()), data);
+        assert_eq!(ValueType::RecordPointer("nok".to_string()), data);
     }
 
     #[test]
