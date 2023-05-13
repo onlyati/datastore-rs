@@ -32,7 +32,7 @@ This a simple method to initialize this database, communication can be done by u
 ```rust
 use onlyati_datastore::{
     enums::{ErrorKind, DatabaseAction, ValueType},
-    utilities::start_datastore,
+    utilities::{start_datastore, self},
 };
 
 let sender = start_datastore("root".to_string());
