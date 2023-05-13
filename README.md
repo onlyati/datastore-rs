@@ -12,7 +12,7 @@ Simple visual representaion with the following keys:
 +---------+
 | status  | ---------> +------+
 +---------+            | sub1 |
-| network | ------+     +------+
+| network | ------+    +------+
 +---------+       |    | sub2 |
    root           |    +------+
                   |     status
