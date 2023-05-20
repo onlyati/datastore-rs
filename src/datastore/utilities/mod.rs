@@ -1,6 +1,6 @@
 //! Built-in utilities
 
-use std::sync::mpsc::{Receiver, Sender};
+use std::{sync::mpsc::{Receiver, Sender}, thread::JoinHandle};
 
 pub(crate) mod inernal;
 
@@ -37,10 +37,10 @@ use super::{
 /// let data = rx.recv().expect("Failed to receive message").expect("Failed to get data");
 /// assert_eq!(ValueType::RecordPointer("ok".to_string()), data);
 /// ```
-pub fn start_datastore(name: String) -> Sender<DatabaseAction> {
+pub fn start_datastore(name: String) -> (Sender<DatabaseAction>, JoinHandle<()>) {
     let (tx, rx) = std::sync::mpsc::channel::<DatabaseAction>();
 
-    std::thread::spawn(move || {
+    let thread = std::thread::spawn(move || {
         let mut db = Database::new(name).expect("Failed to allocate database");
 
         while let Ok(data) = rx.recv() {
@@ -102,7 +102,7 @@ pub fn start_datastore(name: String) -> Sender<DatabaseAction> {
         }
     });
 
-    return tx;
+    return (tx, thread);
 }
 
 /// Return with channel for Set action

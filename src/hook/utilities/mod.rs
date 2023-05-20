@@ -1,4 +1,5 @@
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::thread::JoinHandle;
 
 use super::enums::{HookManagerAction, HookManagerResponse};
 use super::HookManager;
@@ -21,7 +22,7 @@ use super::HookManager;
 /// assert_eq!(HookManagerResponse::Ok, response);
 /// 
 /// ```
-pub fn start_hook_manager() -> Sender<HookManagerAction> {
+pub fn start_hook_manager() -> (Sender<HookManagerAction>, JoinHandle<()>) {
     let (tx, rx) = channel::<HookManagerAction>();
     let mut manager = HookManager::new();
 
@@ -30,7 +31,7 @@ pub fn start_hook_manager() -> Sender<HookManagerAction> {
         .build()
         .expect("Failed to allocate runtime for HookManager");
 
-    std::thread::spawn(move || {
+    let thread = std::thread::spawn(move || {
         rt.block_on(async move {
             loop {
                 match rx.recv() {
@@ -81,7 +82,7 @@ pub fn start_hook_manager() -> Sender<HookManagerAction> {
         });
     });
 
-    return tx;
+    return (tx, thread);
 }
 
 /// Get channel for HookManager response
