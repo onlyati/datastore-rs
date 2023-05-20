@@ -52,15 +52,21 @@ impl HookManager {
 
     /// Add new hook
     pub fn add(&mut self, prefix: String, link: String) -> Result<(), HookManagerResponse> {
+        tracing::trace!("hook set request is performed for '{}' prefix with '{}' link", prefix, link);
         match self.hooks.get_mut(&prefix) {
             Some(hooks) => match hooks.iter().position(|x| x == &link) {
-                Some(_) => return Err(HookManagerResponse::Error("Already defined".to_string())),
+                Some(_) => {
+                    tracing::trace!("hook set request is failed due to '{}' with '{}' link is already exist", prefix, link);
+                    return Err(HookManagerResponse::Error("Already defined".to_string()));
+                },
                 None => {
                     hooks.push(link);
+                    tracing::trace!("hook set request is done for '{}'", prefix);
                     return Ok(());
                 }
             },
             None => {
+                tracing::trace!("hook set request is done for '{}'", prefix);
                 self.hooks.insert(prefix, vec![link]);
                 return Ok(());
             }
@@ -69,39 +75,56 @@ impl HookManager {
 
     /// Delete existing hook
     pub fn remove(&mut self, prefix: String, link: String) -> Result<(), HookManagerResponse> {
+        tracing::trace!("hook set request is performed for '{}' prefix with '{}' link", prefix, link);
         match self.hooks.get_mut(&prefix) {
             Some(hooks) => {
                 match hooks.iter().position(|x| x == &link) {
                     Some(index) => hooks.remove(index),
-                    None => return Err(HookManagerResponse::Error("Not found".to_string())),
+                    None => {
+                        tracing::trace!("hook set request is failed because no '{}' link exist", link);
+                        return Err(HookManagerResponse::Error("Not found".to_string()));
+                    },
                 };
 
                 if hooks.len() == 0 {
                     self.hooks.remove(&prefix);
                 }
 
+                tracing::trace!("hook set request is done for '{}' prefix with '{}' link", prefix, link);
                 return Ok(());
             },
-            None => return Err(HookManagerResponse::Error("Not found".to_string())),
+            None => {
+                tracing::trace!("hook set request is failed because no '{}' hook found", prefix);
+                return Err(HookManagerResponse::Error("Not found".to_string()));
+            },
         }
     }
 
     /// Check that hook exist
     pub fn get(&self, prefix: &String) -> Option<Hooks> {
+        tracing::trace!("hook get request is performed for '{}' prefix", prefix);
         match self.hooks.get(prefix) {
-            Some(hooks) => return Some(hooks.clone()),
-            None => return None,
+            Some(hooks) => {
+                tracing::trace!("hook get request is done for '{}' prefix", prefix);
+                return Some(hooks.clone());
+            },
+            None => {
+                tracing::trace!("hook get request is failed due to no '{}' prefix exist", prefix);
+                return None;
+            },
         }
     }
 
     /// List hooks for specified paths
     pub fn list(&self, key: &String) -> BTreeMap<Prefix, Hooks> {
+        tracing::trace!("hook list request is performed for '{}' prefix", key);
         let selected_hooks: BTreeMap<Prefix, Hooks> = self
             .hooks
             .iter()
             .filter(|x| x.0.starts_with(key))
             .map(|x| (x.0.clone(), x.1.clone()))
             .collect();
+        tracing::trace!("hook list request is done and found {} record", selected_hooks.len());
         return selected_hooks;
     }
 
@@ -140,20 +163,24 @@ impl HookManager {
         let mut body = HashMap::new();
         body.insert("key", key);
         body.insert("value", value);
+        tracing::debug!("check hooks for {}", key);
 
         let mut counter = 0;
 
         for (prefix, links) in &self.hooks {
             if key.starts_with(prefix) {
                 for link in links {
+                    tracing::trace!("send POST request to '{}' link", link);
                     counter += 1;
                     match client.post(link).json(&body).send().await {
-                        Err(e) => eprintln!("Error: HTTP request with hook but: {}", e),
-                        _ => (),
+                        Err(e) => tracing::error!("Error: HTTP request with hook but: {}", e),
+                        Ok(resp) => tracing::trace!("{:?}", resp),
                     };
                 }
             }
         }
+
+        tracing::trace!("sent {} request for '{}' key", counter, key);
 
         match counter {
             0 => return None,

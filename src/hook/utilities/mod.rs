@@ -40,34 +40,34 @@ pub fn start_hook_manager() -> (Sender<HookManagerAction>, JoinHandle<()>) {
                             match manager.add(prefix, target) {
                                 Ok(_) => sender
                                     .send(HookManagerResponse::Ok)
-                                    .unwrap_or_else(|e| eprintln!("Error during send: {}", e)),
+                                    .unwrap_or_else(|e| tracing::error!("Error during send: {}", e)),
                                 Err(e) => sender
                                     .send(e)
-                                    .unwrap_or_else(|e| eprintln!("Error during send: {}", e)),
+                                    .unwrap_or_else(|e| tracing::error!("Error during send: {}", e)),
                             }
                         }
                         HookManagerAction::Remove(sender, prefix, target) => {
                             match manager.remove(prefix, target) {
                                 Ok(_) => sender
                                     .send(HookManagerResponse::Ok)
-                                    .unwrap_or_else(|e| eprintln!("Error during send: {}", e)),
+                                    .unwrap_or_else(|e| tracing::error!("Error during send: {}", e)),
                                 Err(e) => sender
                                     .send(e)
-                                    .unwrap_or_else(|e| eprintln!("Error during send: {}", e)),
+                                    .unwrap_or_else(|e| tracing::error!("Error during send: {}", e)),
                             }
                         }
                         HookManagerAction::Get(sender, prefix) => match manager.get(&prefix) {
                             Some(hooks) => sender
                                 .send(HookManagerResponse::Hook(prefix, hooks))
-                                .unwrap_or_else(|e| eprintln!("Error during send: {}", e)),
+                                .unwrap_or_else(|e| tracing::error!("Error during send: {}", e)),
                             None => sender
                                 .send(HookManagerResponse::Error("Not found".to_string()))
-                                .unwrap_or_else(|e| eprintln!("Error during send: {}", e)),
+                                .unwrap_or_else(|e| tracing::error!("Error during send: {}", e)),
                         },
                         HookManagerAction::List(sender, prefix) => {
                             sender
                                 .send(HookManagerResponse::HookList(manager.list(&prefix)))
-                                .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
+                                .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
                         }
                         HookManagerAction::Send(test_key, value) => {
                             manager.execute_hooks(&test_key, &value).await;

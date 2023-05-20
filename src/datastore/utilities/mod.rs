@@ -49,16 +49,19 @@ pub fn start_datastore(
     name: String,
     sender: Option<Sender<HookManagerAction>>,
 ) -> (Sender<DatabaseAction>, JoinHandle<()>) {
+    tracing::debug!("root element of database is '{}'", name);
     let (tx, rx) = std::sync::mpsc::channel::<DatabaseAction>();
 
     let thread = std::thread::spawn(move || {
         let mut db = Database::new(name).expect("Failed to allocate database");
 
         if let Some(sender) = sender {
+            tracing::debug!("subscribed to a hook manager");
             db.subscribe_to_hook_manager(sender);
         }
 
         while let Ok(data) = rx.recv() {
+            tracing::trace!("received request: {}", data);
             match data {
                 // Handle Get actions
                 DatabaseAction::Get(sender, key) => match db.get(KeyType::Record(key)) {
@@ -230,7 +233,7 @@ macro_rules! hook_inactive {
     ($sender:expr) => {
         $sender
             .send(Err(ErrorKind::InactiveHookManager))
-            .unwrap_or_else(|e| eprintln!("Error during send: {}", e))
+            .unwrap_or_else(|e| tracing::error!("Error during send: {}", e))
     };
 }
 pub(self) use hook_inactive;
@@ -238,10 +241,10 @@ pub(self) use hook_inactive;
 macro_rules! hook_send {
     ($sender:expr, $hook_sender:expr, $action:expr) => {
         if let Err(e) = $hook_sender.send($action) {
-            eprintln!("Failed to send to hook manager: {}", e);
+            tracing::error!("Failed to send to hook manager: {}", e);
             $sender
                 .send(Err(ErrorKind::InternalError("".to_string())))
-                .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
+                .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
             continue;
         }
     };
@@ -250,12 +253,12 @@ pub(self) use hook_send;
 
 macro_rules! hook_receive_failed {
     ($sender:expr, $error:expr) => {{
-        eprintln!("Failed to receive from hook manager: {}", $error);
+        tracing::error!("Failed to receive from hook manager: {}", $error);
         $sender
             .send(Err(ErrorKind::InternalError(
                 "Failed to receive from hook manager".to_string(),
             )))
-            .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
+            .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
     }};
 }
 pub(self) use hook_receive_failed;
@@ -264,7 +267,7 @@ macro_rules! send_response {
     ($sender:expr, $value:expr) => {{
         $sender
             .send($value)
-            .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
+            .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
     }};
 }
 pub(self) use send_response;

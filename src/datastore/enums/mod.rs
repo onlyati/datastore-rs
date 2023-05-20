@@ -22,6 +22,16 @@ pub enum ListType {
     All,
 }
 
+impl std::fmt::Display for ListType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            Self::OneLevel => "OneLevel",
+            Self::All => "All",
+        };
+        return write!(f, "{}", text);
+    }
+}
+
 ///
 /// Actions for built-in server
 ///
@@ -52,4 +62,21 @@ pub enum DatabaseAction {
 
     /// List hooks
     HookList(Sender<ResultWithHooks>, Prefix),
+}
+
+impl std::fmt::Display for DatabaseAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            Self::Set(_, key, _) => format!("Set[{}]", key),
+            Self::Get(_, key) => format!("Get[{}]", key),
+            Self::DeleteKey(_, key) => format!("RemKey[{}]", key),
+            Self::DeleteTable(_, key) => format!("RemPath[{}]", key),
+            Self::ListKeys(_, key, r#type) => format!("ListKeys[{}, {}]", key, r#type),
+            Self::HookSet(_, prefix, link) => format!("HookSet[{}, {}]", prefix, link),
+            Self::HookGet(_, prefix) => format!("HookGet[{}]", prefix),
+            Self::HookRemove(_, prefix, link) => format!("HookRemove[{}, {}]", prefix, link),
+            Self::HookList(_, prefix) => format!("HookList[{}]", prefix),
+        };
+        return write!(f, "{}", text);
+    }
 }

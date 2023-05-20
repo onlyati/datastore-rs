@@ -36,12 +36,17 @@ impl Database {
     /// let db = onlyati_datastore::datastore::Database::new("root".to_string()).unwrap();
     /// ```
     pub fn new(root_name: String) -> Result<Self, ErrorKind> {
+        tracing::trace!(
+            "try to allocate new database with '{}' root table",
+            root_name
+        );
         if root_name.contains("/") {
             return Err(ErrorKind::InvalidRoot(
                 "Root name cannot contains '/' character".to_string(),
             ));
         }
 
+        tracing::trace!("root table is allocated");
         return Ok(Self {
             name: root_name,
             root: Table::new(),
@@ -61,6 +66,7 @@ impl Database {
     /// db.subscribe_to_hook_manager(sender);
     /// ```
     pub fn subscribe_to_hook_manager(&mut self, sender: Sender<HookManagerAction>) {
+        tracing::trace!("subscribe to hook manager");
         self.hook_sender = Some(sender);
     }
 
@@ -81,6 +87,7 @@ impl Database {
     /// let result = db.insert(KeyType::Record("/root/network/dns-stats".to_string()), ValueType::RecordPointer("ok".to_string()));
     /// ```
     pub fn insert(&mut self, key: KeyType, value: ValueType) -> Result<(), ErrorKind> {
+        tracing::trace!("set request is performed for '{}'", key.get_key());
         let key_routes = utilities::internal::validate_key(key.get_key(), &self.name)?;
 
         let mut table = Box::new(&mut self.root);
@@ -98,15 +105,17 @@ impl Database {
                 Some(item) => match item {
                     ValueType::TablePointer(sub_table) => sub_table,
                     _ => {
+                        tracing::error!("wow, this should not happen a table pointer should be here not a record pointer");
                         return Err(ErrorKind::InternalError(
                             "This should not have happen".to_string(),
-                        ))
+                        ));
                     }
                 },
                 _ => {
+                    tracing::error!("wow, this should not happen table must exist");
                     return Err(ErrorKind::InternalError(
                         "This should not have happen".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -115,14 +124,16 @@ impl Database {
         }
 
         let record_key = KeyType::Record(last_route.to_string());
+        tracing::trace!("set request is done for '{}'", key.get_key());
         table.insert(record_key, value.clone());
 
         if let Some(sender) = &self.hook_sender {
+            tracing::trace!("send alert to hook manager about '{}' key", key.get_key());
             if let ValueType::RecordPointer(value) = &value {
                 let action = HookManagerAction::Send(key.get_key().clone(), value.clone());
                 sender
                     .send(action)
-                    .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
+                    .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
             }
         }
 
@@ -146,6 +157,7 @@ impl Database {
     /// let value = db.get(KeyType::Record("/root/status".to_string())).expect("Key not found");
     /// ```
     pub fn get(&self, key: KeyType) -> Result<ValueType, ErrorKind> {
+        tracing::trace!("get request is performed for '{}'", key.get_key());
         if let KeyType::Table(_) = key {
             return Err(ErrorKind::InvalidKey(
                 "Parameter must be a Record type".to_string(),
@@ -159,20 +171,25 @@ impl Database {
         ) {
             Some(table) => table,
             None => {
+                tracing::trace!("key '{}' does not exist", key.get_key());
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
-                ))
+                ));
             }
         };
 
         let find_key = KeyType::Record(key_routes[key_routes.len() - 1].to_string());
 
         match table.get(&find_key) {
-            Some(value) => return Ok(value.clone()),
+            Some(value) => {
+                tracing::trace!("get request is done for '{}'", key.get_key());
+                return Ok(value.clone());
+            }
             None => {
+                tracing::trace!("key '{}' does not exist", key.get_key());
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
-                ))
+                ));
             }
         }
     }
@@ -203,6 +220,10 @@ impl Database {
         key_prefix: KeyType,
         level: ListType,
     ) -> Result<Vec<KeyType>, ErrorKind> {
+        tracing::trace!(
+            "list keys request is performed for '{}'",
+            key_prefix.get_key()
+        );
         if let KeyType::Table(_) = key_prefix {
             return Err(ErrorKind::InvalidKey(
                 "Parameter must be a Record type".to_string(),
@@ -214,15 +235,20 @@ impl Database {
         let table = match utilities::internal::find_table(Box::new(&self.root), key_routes) {
             Some(table) => table,
             None => {
+                tracing::trace!(
+                    "get request is failed due to no '{}' key exist",
+                    key_prefix.get_key()
+                );
                 return Err(ErrorKind::InvalidKey(
                     "Specified route does not exist".to_string(),
-                ))
+                ));
             }
         };
 
         // Get the information
         let result = utilities::internal::display_tables(table, key_prefix.get_key(), &level)?;
 
+        tracing::trace!("list keys request is done for '{}'", key_prefix.get_key());
         return Ok(result);
     }
 
@@ -244,7 +270,9 @@ impl Database {
     /// db.delete_key(key).expect("Could not delete the key");
     /// ```
     pub fn delete_key(&mut self, key: KeyType) -> Result<(), ErrorKind> {
+        tracing::trace!("delete key request is performed for '{}'", key.get_key());
         if let KeyType::Table(_) = key {
+            tracing::trace!("delete request is failed due to wrong key type");
             return Err(ErrorKind::InvalidKey(
                 "Parameter must be a Record type".to_string(),
             ));
@@ -257,20 +285,31 @@ impl Database {
         ) {
             Some(table) => table,
             None => {
+                tracing::trace!(
+                    "delete request is failed because no '{}' key exist",
+                    key.get_key()
+                );
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
-                ))
+                ));
             }
         };
 
         let delete_key = KeyType::Record(key_routes[key_routes.len() - 1].to_string());
 
         match table.remove(&delete_key) {
-            Some(_) => return Ok(()),
+            Some(_) => {
+                tracing::trace!("delete request is done for '{}'", key.get_key());
+                return Ok(());
+            }
             None => {
+                tracing::trace!(
+                    "delete request is failed because no '{}' key exist",
+                    key.get_key()
+                );
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
-                ))
+                ));
             }
         };
     }
@@ -300,7 +339,9 @@ impl Database {
     /// println!("{:?}", list);
     /// ```
     pub fn delete_table(&mut self, key: KeyType) -> Result<(), ErrorKind> {
+        tracing::trace!("delete table request is performed for '{}'", key.get_key());
         if let KeyType::Record(_) = key {
+            tracing::trace!("delete table request is failed due to wrong key type is specified");
             return Err(ErrorKind::InvalidKey(
                 "Parameter must be a Table type".to_string(),
             ));
@@ -313,20 +354,31 @@ impl Database {
         ) {
             Some(table) => table,
             None => {
+                tracing::trace!(
+                    "delete table request is failed because no '{}' key exist",
+                    key.get_key()
+                );
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
-                ))
+                ));
             }
         };
 
         let delete_key = KeyType::Table(key_routes[key_routes.len() - 1].to_string());
 
         match table.remove(&delete_key) {
-            Some(_) => return Ok(()),
+            Some(_) => {
+                tracing::trace!("delete table request is performed for '{}'", key.get_key());
+                return Ok(());
+            }
             None => {
+                tracing::trace!(
+                    "delete table request is failed because no '{}' key exist",
+                    key.get_key()
+                );
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
-                ))
+                ));
             }
         };
     }
