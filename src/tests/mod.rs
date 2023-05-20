@@ -334,7 +334,7 @@ mod tests {
                     }
                 }
 
-                // println!("Request: {:#?}", http_request);
+                println!("Request: {:#?}", http_request);
                 stream.write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes()).unwrap();
             }
             panic!("TCP listener has stopped");
@@ -354,6 +354,7 @@ mod tests {
             let counter = manager.execute_hooks(&"/root/arpa/server1".to_string(), &"This is the value".to_string()).await;
             assert_eq!(Some(1), counter);
 
+            // Wait some time until request are received
             tokio::time::sleep(tokio::time::Duration::new(1, 0)).await;
         });
     }

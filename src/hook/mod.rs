@@ -10,6 +10,33 @@ use enums::HookManagerResponse;
 use types::{Hooks, Prefix};
 
 /// HookManager main structure
+/// 
+/// # Examples
+/// ```
+/// use onlyati_datastore::hook::HookManager;
+/// 
+/// let mut manager = HookManager::new();
+/// 
+/// let mut manager = HookManager::new();
+/// 
+/// let result = manager.add("/root/status".to_string(), "http://127.0.0.1:3031".to_string());
+/// assert_eq!(true, result.is_ok());
+/// 
+/// let result = manager.add("/root/status".to_string(), "http://127.0.0.1:3032".to_string());
+/// assert_eq!(true, result.is_ok());
+/// 
+/// let result = manager.add("/root/arpa".to_string(), "http://127.0.0.1:3031".to_string());
+/// assert_eq!(true, result.is_ok());
+/// 
+/// let result = manager.list(&"/root".to_string());
+/// assert_eq!(2, result.len());
+/// 
+/// let result = manager.list(&"/root/stat".to_string());
+/// assert_eq!(1, result.len());
+/// 
+/// let result = manager.list(&"/root/no_exist".to_string());
+/// assert_eq!(0, result.len());
+/// ```
 pub struct HookManager {
     hooks: BTreeMap<Prefix, Hooks>,
 }
@@ -73,6 +100,35 @@ impl HookManager {
     }
 
     /// Pass a key and send POST request if key match with any defined prefix
+    /// 
+    /// # Examples
+    /// ```
+    /// use onlyati_datastore::hook::HookManager;
+    /// 
+    /// let mut manager = HookManager::new();
+    /// 
+    /// let mut manager = HookManager::new();
+    /// 
+    /// // Normaly you have to specify address where the HTTP POST request can be sent
+    /// let result = manager.add("/root/status".to_string(), "http://127.0.0.1:3031".to_string());
+    /// assert_eq!(true, result.is_ok());
+    /// 
+    /// let result = manager.add("/root/status".to_string(), "http://127.0.0.1:3032".to_string());
+    /// assert_eq!(true, result.is_ok());
+    /// 
+    /// let rt = tokio::runtime::Builder::new_current_thread()
+    ///     .enable_all()
+    ///     .build()
+    ///     .unwrap();
+    /// rt.block_on(async move {
+    ///     let counter = manager.execute_hooks(&"/root/status/dns1".to_string(), &"okay".to_string()).await;
+    ///     assert_eq!(Some(2), counter);
+    /// 
+    ///     let counter = manager.execute_hooks(&"/root/no_exist".to_string(), &"okay".to_string()).await;
+    ///     assert_eq!(None, counter);
+    /// });
+    /// 
+    /// ```
     pub async fn execute_hooks(&self, key: &String, value: &String) -> Option<i32> {
         let client = reqwest::Client::new();
         let mut body = HashMap::new();

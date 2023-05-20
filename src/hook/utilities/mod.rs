@@ -1,8 +1,26 @@
-use std::sync::mpsc::{channel, Sender};
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 use super::enums::{HookManagerAction, HookManagerResponse};
 use super::HookManager;
 
+/// Start a HookManager on a single tokio thread
+/// 
+/// # Examples
+/// ```
+/// use onlyati_datastore::hook::utilities;
+/// use onlyati_datastore::hook::enums::{HookManagerAction, HookManagerResponse};
+/// 
+/// let sender = utilities::start_hook_manager();
+/// 
+/// let (tx, rx) = utilities::get_channel();
+/// let action = HookManagerAction::Set(tx, "/root/stats".to_string(), "http://127.0.0.1:3031".to_string());
+/// 
+/// sender.send(action).expect("Failed to send request");
+/// 
+/// let response = rx.recv().expect("Failed to receive");
+/// assert_eq!(HookManagerResponse::Ok, response);
+/// 
+/// ```
 pub fn start_hook_manager() -> Sender<HookManagerAction> {
     let (tx, rx) = channel::<HookManagerAction>();
     let mut manager = HookManager::new();
@@ -64,4 +82,9 @@ pub fn start_hook_manager() -> Sender<HookManagerAction> {
     });
 
     return tx;
+}
+
+/// Get channel for HookManager response
+pub fn get_channel() -> (Sender<HookManagerResponse>, Receiver<HookManagerResponse>) {
+    return channel::<HookManagerResponse>();
 }

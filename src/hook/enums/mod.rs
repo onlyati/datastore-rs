@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use super::types::{Hooks, Key, Link, Prefix, Value};
 
+#[derive(Debug)]
 /// Input actions for HookManager
 pub enum HookManagerAction {
     /// SET new hook
@@ -21,6 +22,7 @@ pub enum HookManagerAction {
     Send(Sender<HookManagerResponse>, Key, Value),
 }
 
+#[derive(Debug, Eq, PartialEq)]
 /// Possible answers for HookManager
 pub enum HookManagerResponse {
     /// Empty good response
