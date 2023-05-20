@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::{
-        controller::Database,
-        enums::{DatabaseAction, ErrorKind, KeyType, ListType, ValueType},
+    use crate::datastore::{
+        Database,
+        enums::{DatabaseAction, error::ErrorKind, pair::KeyType, ListType, pair::ValueType},
         utilities::{self, start_datastore},
     };
 

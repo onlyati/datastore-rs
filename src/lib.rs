@@ -30,8 +30,8 @@
 //! This a simple method to initialize this database, communication can be done by using channels.
 //! 
 //! ```
-//! use onlyati_datastore::{
-//!     enums::{ErrorKind, DatabaseAction, ValueType},
+//! use onlyati_datastore::datastore::{
+//!     enums::{error::ErrorKind, DatabaseAction, pair::ValueType},
 //!     utilities::{start_datastore, self},
 //! };
 //! 
@@ -59,10 +59,10 @@
 //! But it is also possible to use it as it is called directly if the application does not prefer the method mentioned earlier.
 //! 
 //! ```
-//! use onlyati_datastore::controller::Database;
-//! use onlyati_datastore::enums::{KeyType, ValueType, ListType};
+//! use onlyati_datastore::datastore::Database;
+//! use onlyati_datastore::datastore::enums::{pair::KeyType, pair::ValueType, ListType};
 //! 
-//! let mut db = onlyati_datastore::controller::Database::new("root".to_string()).unwrap();
+//! let mut db = Database::new("root".to_string()).unwrap();
 //! 
 //! let list: Vec<(KeyType, ValueType)> = vec![
 //!     (KeyType::Record("/root/status/sub1".to_string()), ValueType::RecordPointer("OK".to_string())),
@@ -80,8 +80,5 @@
 //! ```
 #![allow(dead_code)]
 
-pub mod controller;
-pub mod enums;
-pub mod types;
-pub mod utilities;
-
+pub mod datastore;
+mod tests;

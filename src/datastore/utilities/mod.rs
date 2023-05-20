@@ -1,12 +1,10 @@
 //! Built-in utilities
 
-mod tests;
-
 use std::sync::mpsc::{Receiver, Sender};
 
-use crate::{
-    controller::Database,
-    enums::{DatabaseAction, ErrorKind, KeyType, ListType, ValueType},
+use super::{
+    Database,
+    enums::{DatabaseAction, error::ErrorKind, pair::KeyType, ListType, pair::ValueType},
     types::{ResultWithList, ResultWithResult, ResultWithoutResult, Table},
 };
 
@@ -15,8 +13,8 @@ use crate::{
 /// # Example for call
 ///
 /// ```
-/// use onlyati_datastore::{
-///     enums::{ErrorKind, DatabaseAction, ValueType},
+/// use onlyati_datastore::datastore::{
+///     enums::{error::ErrorKind, DatabaseAction, pair::ValueType},
 ///     utilities::{start_datastore, self},
 /// };
 ///

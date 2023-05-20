@@ -1,9 +1,9 @@
 //! Custom types
 
 use std::collections::BTreeMap;
-use crate::enums::ErrorKind;
+use super::enums::error::ErrorKind;
 
-use crate::enums::{KeyType, ValueType};
+use super::enums::pair::{KeyType, ValueType};
 
 pub type Table = BTreeMap<KeyType, ValueType>;
 

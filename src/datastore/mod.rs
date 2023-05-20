@@ -1,7 +1,11 @@
 //! Main component
 
-use crate::{
-    enums::{ErrorKind, KeyType, ListType, ValueType},
+pub mod enums;
+pub mod types;
+pub mod utilities;
+
+use self::{
+    enums::{error::ErrorKind, pair::KeyType, ListType, pair::ValueType},
     types::Table,
 };
 
@@ -22,7 +26,7 @@ impl Database {
     ///
     /// # Examples
     /// ```
-    /// let db = onlyati_datastore::controller::Database::new("root".to_string()).unwrap();
+    /// let db = onlyati_datastore::datastore::Database::new("root".to_string()).unwrap();
     /// ```
     pub fn new(root_name: String) -> Result<Self, ErrorKind> {
         if root_name.contains("/") {
@@ -46,15 +50,15 @@ impl Database {
     /// # Example
     ///
     /// ```
-    /// use onlyati_datastore::controller::Database;
-    /// use onlyati_datastore::enums::{KeyType, ValueType};
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
     ///
     /// let result = db.insert(KeyType::Record("/root/network/dns-stats".to_string()), ValueType::RecordPointer("ok".to_string()));
     /// ```
     pub fn insert(&mut self, key: KeyType, value: ValueType) -> Result<(), ErrorKind> {
-        let key_routes = crate::utilities::validate_key(key.get_key(), &self.name)?;
+        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
 
         let mut table = Box::new(&mut self.root);
         let last_route = key_routes[key_routes.len() - 1];
@@ -101,8 +105,8 @@ impl Database {
     /// # Example
     /// 
     /// ```
-    /// use onlyati_datastore::controller::Database;
-    /// use onlyati_datastore::enums::{KeyType, ValueType};
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
     /// 
@@ -116,8 +120,8 @@ impl Database {
             ));
         }
 
-        let key_routes = crate::utilities::validate_key(key.get_key(), &self.name)?;
-        let table = match crate::utilities::find_table(
+        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::find_table(
             Box::new(&self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
@@ -150,8 +154,8 @@ impl Database {
     /// # Example
     /// 
     /// ```
-    /// use onlyati_datastore::controller::Database;
-    /// use onlyati_datastore::enums::{KeyType, ValueType, ListType};
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::{pair::KeyType, pair::ValueType, ListType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
     /// 
@@ -174,8 +178,8 @@ impl Database {
         }
 
         // Find the base table
-        let key_routes = crate::utilities::validate_key(key_prefix.get_key(), &self.name)?;
-        let table = match crate::utilities::find_table(Box::new(&self.root), key_routes) {
+        let key_routes = utilities::validate_key(key_prefix.get_key(), &self.name)?;
+        let table = match utilities::find_table(Box::new(&self.root), key_routes) {
             Some(table) => table,
             None => {
                 return Err(ErrorKind::InvalidKey(
@@ -185,7 +189,7 @@ impl Database {
         };
 
         // Get the information
-        let result = crate::utilities::display_tables(table, key_prefix.get_key(), &level)?;
+        let result = utilities::display_tables(table, key_prefix.get_key(), &level)?;
 
         return Ok(result);
     }
@@ -198,8 +202,8 @@ impl Database {
     /// # Example
     /// 
     /// ```
-    /// use onlyati_datastore::controller::Database;
-    /// use onlyati_datastore::enums::{KeyType, ValueType};
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
     /// 
@@ -214,8 +218,8 @@ impl Database {
             ));
         }
 
-        let key_routes = crate::utilities::validate_key(key.get_key(), &self.name)?;
-        let table = match crate::utilities::find_table_mut(
+        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::find_table_mut(
             Box::new(&mut self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
@@ -247,8 +251,8 @@ impl Database {
     /// # Example
     /// 
     /// ```
-    /// use onlyati_datastore::controller::Database;
-    /// use onlyati_datastore::enums::{KeyType, ValueType, ListType};
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::{pair::KeyType, pair::ValueType, ListType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
     /// 
@@ -270,8 +274,8 @@ impl Database {
             ));
         }
 
-        let key_routes = crate::utilities::validate_key(key.get_key(), &self.name)?;
-        let table = match crate::utilities::find_table_mut(
+        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::find_table_mut(
             Box::new(&mut self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
