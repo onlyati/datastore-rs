@@ -70,12 +70,17 @@ impl HookManager {
     /// Delete existing hook
     pub fn remove(&mut self, prefix: String, link: String) -> Result<(), HookManagerResponse> {
         match self.hooks.get_mut(&prefix) {
-            Some(hooks) => match hooks.iter().position(|x| x == &link) {
-                Some(index) => {
-                    hooks.remove(index);
-                    return Ok(());
+            Some(hooks) => {
+                match hooks.iter().position(|x| x == &link) {
+                    Some(index) => hooks.remove(index),
+                    None => return Err(HookManagerResponse::Error("Not found".to_string())),
+                };
+
+                if hooks.len() == 0 {
+                    self.hooks.remove(&prefix);
                 }
-                None => return Err(HookManagerResponse::Error("Not found".to_string())),
+
+                return Ok(());
             },
             None => return Err(HookManagerResponse::Error("Not found".to_string())),
         }

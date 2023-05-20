@@ -2,7 +2,13 @@
 mod tests {
     use std::io::prelude::*;
 
-    use crate::hook::{utilities, HookManager};
+    use crate::{
+        datastore::{
+            enums::DatabaseAction,
+            utilities::{get_channel_for_hook_get, get_channel_for_hook_set, get_channel_for_hook_list, get_channel_for_hook_remove},
+        },
+        hook::{utilities, HookManager},
+    };
 
     #[test]
     fn test_hook_manager() {
@@ -115,14 +121,136 @@ mod tests {
             assert_eq!(Some(1), counter);
 
             // Wait some time until request are received
-            tokio::time::sleep(tokio::time::Duration::new(2, 0)).await;
+            tokio::time::sleep(tokio::time::Duration::new(1, 0)).await;
         });
     }
 
     #[test]
     fn hook_manager_with_datastore() {
         let (sender, _) = utilities::start_hook_manager();
-        let (sender) =
+        let (sender, _) =
             crate::datastore::utilities::start_datastore("root".to_string(), Some(sender));
+
+        // Add one hook
+        let (tx, rx) = get_channel_for_hook_set();
+        let action = DatabaseAction::HookSet(
+            tx,
+            "/root/status".to_string(),
+            "http://127.0.0.1:3031".to_string(),
+        );
+        sender.send(action).expect("Failed to send hook request");
+
+        rx.recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+
+        // Add another one hook
+        let (tx, rx) = get_channel_for_hook_set();
+        let action = DatabaseAction::HookSet(
+            tx,
+            "/root/status".to_string(),
+            "http://127.0.0.1:3032".to_string(),
+        );
+        sender.send(action).expect("Failed to send hook request");
+
+        rx.recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+
+        // Add a different one
+        let (tx, rx) = get_channel_for_hook_set();
+        let action = DatabaseAction::HookSet(
+            tx,
+            "/root/arpa".to_string(),
+            "http://127.0.0.1:3031".to_string(),
+        );
+        sender.send(action).expect("Failed to send hook request");
+
+        rx.recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+
+        // Test for get
+        let (tx, rx) = get_channel_for_hook_get();
+        let action = DatabaseAction::HookGet(tx, "/root/status".to_string());
+        sender.send(action).expect("Failed to send hook request");
+
+        let list_etalon = vec![
+            "http://127.0.0.1:3031".to_string(),
+            "http://127.0.0.1:3032".to_string(),
+        ];
+
+        let result = rx
+            .recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+        assert_eq!("/root/status".to_string(), result.0);
+        assert_eq!(2, result.1.len());
+        assert_eq!(list_etalon, result.1);
+
+        // Test for list
+        let (tx, rx) = get_channel_for_hook_list();
+        let action = DatabaseAction::HookList(tx, "/root".to_string());
+        sender.send(action).expect("Failed to send hook request");
+
+        let result = rx
+            .recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+        assert_eq!(2, result.len());
+        assert_eq!(true, result.contains_key(&"/root/status".to_string()));
+        assert_eq!(true, result.contains_key(&"/root/arpa".to_string()));
+
+        // Test remove
+        let (tx, rx) = get_channel_for_hook_remove();
+        let action = DatabaseAction::HookRemove(tx, "/root/arpa".to_string(), "http://127.0.0.1:3031".to_string());
+        sender.send(action).expect("Failed to send hook request");
+
+        let _result = rx
+            .recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+
+        // Test for list again
+        let (tx, rx) = get_channel_for_hook_list();
+        let action = DatabaseAction::HookList(tx, "/root".to_string());
+        sender.send(action).expect("Failed to send hook request");
+
+        let result = rx
+            .recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+        println!("{:?}", result);
+        assert_eq!(1, result.len());
+        assert_eq!(true, result.contains_key(&"/root/status".to_string()));
+        assert_eq!(false, result.contains_key(&"/root/arpa".to_string()));
+
+        // Test remove again
+        let (tx, rx) = get_channel_for_hook_remove();
+        let action = DatabaseAction::HookRemove(tx, "/root/status".to_string(), "http://127.0.0.1:3031".to_string());
+        sender.send(action).expect("Failed to send hook request");
+
+        let _result = rx
+            .recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+
+        // Test get again
+        let (tx, rx) = get_channel_for_hook_get();
+        let action = DatabaseAction::HookGet(tx, "/root/status".to_string());
+        sender.send(action).expect("Failed to send hook request");
+
+        let list_etalon = vec![
+            "http://127.0.0.1:3032".to_string(),
+        ];
+
+        let result = rx
+            .recv()
+            .expect("Failed to received response")
+            .expect("Bad request");
+        assert_eq!("/root/status".to_string(), result.0);
+        assert_eq!(1, result.1.len());
+        assert_eq!(list_etalon, result.1);
+
     }
 }
