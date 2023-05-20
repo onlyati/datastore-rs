@@ -14,7 +14,7 @@ use crate::hook::{
 
 use super::{
     enums::{error::ErrorKind, pair::KeyType, pair::ValueType, DatabaseAction, ListType},
-    types::{ResultWithList, ResultWithResult, ResultWithoutResult, Table},
+    types::{ResultWithList, ResultWithResult, ResultWithoutResult, Table, ResultWithHook, ResultWithHooks},
     Database,
 };
 
@@ -204,6 +204,26 @@ pub fn get_channel_for_delete() -> (Sender<ResultWithoutResult>, Receiver<Result
 /// Return with channel for ListKeys action
 pub fn get_channel_for_list() -> (Sender<ResultWithList>, Receiver<ResultWithList>) {
     return std::sync::mpsc::channel::<ResultWithList>();
+}
+
+/// Return with channel for HookSet action
+pub fn get_channel_for_hook_set() -> (Sender<ResultWithoutResult>, Receiver<ResultWithoutResult>) {
+    return std::sync::mpsc::channel::<ResultWithoutResult>();
+}
+
+/// Return with channel for HookGet action
+pub fn get_channel_for_hook_get() -> (Sender<ResultWithHook>, Receiver<ResultWithHook>) {
+    return std::sync::mpsc::channel::<ResultWithHook>();
+}
+
+/// Return with channel for HookRemove action
+pub fn get_channel_for_hook_remove() -> (Sender<ResultWithoutResult>, Receiver<ResultWithoutResult>) {
+    return std::sync::mpsc::channel::<ResultWithoutResult>();
+}
+
+/// Return with channel for HookList action
+pub fn get_channel_for_hook_list() -> (Sender<ResultWithHooks>, Receiver<ResultWithHooks>) {
+    return std::sync::mpsc::channel::<ResultWithHooks>();
 }
 
 macro_rules! hook_inactive {

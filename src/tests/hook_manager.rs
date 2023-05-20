@@ -2,7 +2,7 @@
 mod tests {
     use std::io::prelude::*;
 
-    use crate::hook::HookManager;
+    use crate::hook::{utilities, HookManager};
 
     #[test]
     fn test_hook_manager() {
@@ -117,5 +117,12 @@ mod tests {
             // Wait some time until request are received
             tokio::time::sleep(tokio::time::Duration::new(2, 0)).await;
         });
+    }
+
+    #[test]
+    fn hook_manager_with_datastore() {
+        let (sender, _) = utilities::start_hook_manager();
+        let (sender) =
+            crate::datastore::utilities::start_datastore("root".to_string(), Some(sender));
     }
 }
