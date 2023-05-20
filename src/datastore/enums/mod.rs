@@ -1,6 +1,10 @@
 //! Enum for datastore
 
-use super::types::{ResultWithList, ResultWithResult, ResultWithoutResult, Table};
+use crate::hook::types::{Link, Prefix};
+
+use super::types::{
+    ResultWithHook, ResultWithHooks, ResultWithList, ResultWithResult, ResultWithoutResult, Table,
+};
 use std::sync::mpsc::Sender;
 
 pub mod error;
@@ -36,4 +40,16 @@ pub enum DatabaseAction {
 
     /// List keys from a route
     ListKeys(Sender<ResultWithList>, String, ListType),
+
+    /// Set new hook
+    HookSet(Sender<ResultWithoutResult>, Prefix, Link),
+
+    /// Check that hook exist
+    HookGet(Sender<ResultWithHook>, Prefix),
+
+    /// Remove existing hook
+    HookRemove(Sender<ResultWithoutResult>, Prefix, Link),
+
+    /// List hooks
+    HookList(Sender<ResultWithHooks>, Prefix),
 }

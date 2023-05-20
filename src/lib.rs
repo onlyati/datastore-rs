@@ -34,8 +34,12 @@
 //!     enums::{error::ErrorKind, DatabaseAction, pair::ValueType},
 //!     utilities::{start_datastore, self},
 //! };
+//! use onlyati_datastore::hook::utilities::start_hook_manager;
 //! 
-//! let sender = start_datastore("root".to_string());
+//! let (sender, _) = start_hook_manager();
+//! 
+//! // Start a new database with active hook manager
+//! let (sender, _) = start_datastore("root".to_string(), Some(sender));
 //! 
 //! // Add a new pair
 //! let (tx, rx) = utilities::get_channel_for_set();
@@ -82,4 +86,5 @@
 
 pub mod datastore;
 pub mod hook;
+pub mod config;
 mod tests;

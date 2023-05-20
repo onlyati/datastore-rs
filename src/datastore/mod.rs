@@ -4,8 +4,12 @@ pub mod enums;
 pub mod types;
 pub mod utilities;
 
+use std::sync::mpsc::Sender;
+
+use crate::hook::enums::HookManagerAction;
+
 use self::{
-    enums::{error::ErrorKind, pair::KeyType, ListType, pair::ValueType},
+    enums::{error::ErrorKind, pair::KeyType, pair::ValueType, ListType},
     types::Table,
 };
 
@@ -16,6 +20,9 @@ pub struct Database {
 
     /// Pointer to the root table
     root: Table,
+
+    /// Sender to HookManager
+    hook_sender: Option<Sender<HookManagerAction>>,
 }
 
 impl Database {
@@ -38,7 +45,23 @@ impl Database {
         return Ok(Self {
             name: root_name,
             root: Table::new(),
+            hook_sender: None,
         });
+    }
+
+    /// Subscribe to HookManager
+    ///
+    /// # Arguments
+    /// 1. `sender` - Sender to HookManager thread
+    ///
+    /// # Examples
+    /// ```
+    /// let (sender, _) = onlyati_datastore::hook::utilities::start_hook_manager();
+    /// let mut db = onlyati_datastore::datastore::Database::new("root".to_string()).unwrap();
+    /// db.subscribe_to_hook_manager(sender);
+    /// ```
+    pub fn subscribe_to_hook_manager(&mut self, sender: Sender<HookManagerAction>) {
+        self.hook_sender = Some(sender);
     }
 
     /// Insert or update key into database. Return with nothing if the insert was successful. Else with an error code.
@@ -58,7 +81,7 @@ impl Database {
     /// let result = db.insert(KeyType::Record("/root/network/dns-stats".to_string()), ValueType::RecordPointer("ok".to_string()));
     /// ```
     pub fn insert(&mut self, key: KeyType, value: ValueType) -> Result<(), ErrorKind> {
-        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
+        let key_routes = utilities::internal::validate_key(key.get_key(), &self.name)?;
 
         let mut table = Box::new(&mut self.root);
         let last_route = key_routes[key_routes.len() - 1];
@@ -92,7 +115,16 @@ impl Database {
         }
 
         let record_key = KeyType::Record(last_route.to_string());
-        table.insert(record_key, value);
+        table.insert(record_key, value.clone());
+
+        if let Some(sender) = &self.hook_sender {
+            if let ValueType::RecordPointer(value) = &value {
+                let action = HookManagerAction::Send(key.get_key().clone(), value.clone());
+                sender
+                    .send(action)
+                    .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
+            }
+        }
 
         return Ok(());
     }
@@ -101,15 +133,15 @@ impl Database {
     ///
     /// # Arguments
     /// 1. `key` - Unique key that has to be found
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use onlyati_datastore::datastore::Database;
     /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
-    /// 
+    ///
     /// db.insert(KeyType::Record("/root/status".to_string()), ValueType::RecordPointer("Having a great time".to_string())).expect("Failed to insert");
     /// let value = db.get(KeyType::Record("/root/status".to_string())).expect("Key not found");
     /// ```
@@ -120,8 +152,8 @@ impl Database {
             ));
         }
 
-        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
-        let table = match utilities::inernal::find_table(
+        let key_routes = utilities::internal::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::internal::find_table(
             Box::new(&self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
@@ -146,24 +178,24 @@ impl Database {
     }
 
     /// List keys from a specific entry point and return with a key list. If failed return with error.
-    /// 
+    ///
     /// # Arguments
     /// 1. `key_prefix` - Path where the keys has to be collected
     /// 1. `level` - Need all inner level (`ListType::All`) or just current level (`ListType::OneLevel`)
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use onlyati_datastore::datastore::Database;
     /// use onlyati_datastore::datastore::enums::{pair::KeyType, pair::ValueType, ListType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
-    /// 
+    ///
     /// db.insert(KeyType::Record("/root/status/sub1".to_string()), ValueType::RecordPointer("PING OK".to_string())).expect("Failed to insert");
     /// db.insert(KeyType::Record("/root/status/sub2".to_string()), ValueType::RecordPointer("PING NOK".to_string())).expect("Failed to insert");
     /// db.insert(KeyType::Record("/root/status/sub3".to_string()), ValueType::RecordPointer("PING OK".to_string())).expect("Failed to insert");
     /// let list = db.list_keys(KeyType::Record("/root/status".to_string()), ListType::All).expect("Key not found");
-    /// 
+    ///
     /// println!("{:?}", list);
     /// ```
     pub fn list_keys(
@@ -178,8 +210,8 @@ impl Database {
         }
 
         // Find the base table
-        let key_routes = utilities::inernal::validate_key(key_prefix.get_key(), &self.name)?;
-        let table = match utilities::inernal::find_table(Box::new(&self.root), key_routes) {
+        let key_routes = utilities::internal::validate_key(key_prefix.get_key(), &self.name)?;
+        let table = match utilities::internal::find_table(Box::new(&self.root), key_routes) {
             Some(table) => table,
             None => {
                 return Err(ErrorKind::InvalidKey(
@@ -189,24 +221,24 @@ impl Database {
         };
 
         // Get the information
-        let result = utilities::inernal::display_tables(table, key_prefix.get_key(), &level)?;
+        let result = utilities::internal::display_tables(table, key_prefix.get_key(), &level)?;
 
         return Ok(result);
     }
 
     /// Delete specific key, return with nothig if successful, else with error message.
-    /// 
+    ///
     /// # Arguments
     /// 1. `key` - Unique key that has to be deleted
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use onlyati_datastore::datastore::Database;
     /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
-    /// 
+    ///
     /// let key = KeyType::Record("/root/status".to_string());
     /// db.insert(key.clone(), ValueType::RecordPointer("Having a great time".to_string())).expect("Failed to insert");
     /// db.delete_key(key).expect("Could not delete the key");
@@ -218,8 +250,8 @@ impl Database {
             ));
         }
 
-        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
-        let table = match utilities::inernal::find_table_mut(
+        let key_routes = utilities::internal::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::internal::find_table_mut(
             Box::new(&mut self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
@@ -244,25 +276,25 @@ impl Database {
     }
 
     /// Drop the whole table. If successful return with nothing else with error message.
-    /// 
+    ///
     /// # Arguments
     /// 1. `key` - Key that which table has to be deleted
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use onlyati_datastore::datastore::Database;
     /// use onlyati_datastore::datastore::enums::{pair::KeyType, pair::ValueType, ListType};
     ///
     /// let mut db = Database::new("root".to_string()).unwrap();
-    /// 
+    ///
     /// db.insert(KeyType::Record("/root/status/sub1".to_string()), ValueType::RecordPointer("PING OK".to_string())).expect("Failed to insert");
     /// db.insert(KeyType::Record("/root/status/sub2".to_string()), ValueType::RecordPointer("PING NOK".to_string())).expect("Failed to insert");
     /// db.insert(KeyType::Record("/root/status/sub3".to_string()), ValueType::RecordPointer("PING OK".to_string())).expect("Failed to insert");
     /// db.insert(KeyType::Record("/root/node_name".to_string()), ValueType::RecordPointer("vps01".to_string())).expect("Failed to insert");
-    /// 
+    ///
     /// db.delete_table(KeyType::Table("/root/status".to_string())).expect("Failed to drop from status table");
-    /// 
+    ///
     /// // Only "node_name" remain in the list
     /// let list = db.list_keys(KeyType::Record("/root".to_string()), ListType::All).expect("Key not found");
     /// println!("{:?}", list);
@@ -274,8 +306,8 @@ impl Database {
             ));
         }
 
-        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
-        let table = match utilities::inernal::find_table_mut(
+        let key_routes = utilities::internal::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::internal::find_table_mut(
             Box::new(&mut self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {

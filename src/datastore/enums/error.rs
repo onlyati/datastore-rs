@@ -11,6 +11,9 @@ pub enum ErrorKind {
 
     /// Oops, it should not happen
     InternalError(String),
+
+    /// HookManager is not activated
+    InactiveHookManager,
 }
 
 impl std::fmt::Display for ErrorKind {
@@ -19,6 +22,7 @@ impl std::fmt::Display for ErrorKind {
             Self::InvalidKey(message) => format!("Invalid key: {message}"),
             Self::InvalidRoot(message) => format!("Invalid root: {message}"),
             Self::InternalError(message) => format!("Internal error: {message}"),
+            Self::InactiveHookManager => format!("Inacvite hook manager: database is not subscried"),
         };
         return write!(f, "{}", response);
     }

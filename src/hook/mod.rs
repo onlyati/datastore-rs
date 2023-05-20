@@ -38,6 +38,7 @@ use types::{Hooks, Prefix};
 /// assert_eq!(0, result.len());
 /// ```
 pub struct HookManager {
+    /// List about hooks
     hooks: BTreeMap<Prefix, Hooks>,
 }
 

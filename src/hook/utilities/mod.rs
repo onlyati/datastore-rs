@@ -11,7 +11,7 @@ use super::HookManager;
 /// use onlyati_datastore::hook::utilities;
 /// use onlyati_datastore::hook::enums::{HookManagerAction, HookManagerResponse};
 /// 
-/// let sender = utilities::start_hook_manager();
+/// let (sender, _) = utilities::start_hook_manager();
 /// 
 /// let (tx, rx) = utilities::get_channel();
 /// let action = HookManagerAction::Set(tx, "/root/stats".to_string(), "http://127.0.0.1:3031".to_string());
@@ -69,11 +69,8 @@ pub fn start_hook_manager() -> (Sender<HookManagerAction>, JoinHandle<()>) {
                                 .send(HookManagerResponse::HookList(manager.list(&prefix)))
                                 .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
                         }
-                        HookManagerAction::Send(sender, test_key, value) => {
+                        HookManagerAction::Send(test_key, value) => {
                             manager.execute_hooks(&test_key, &value).await;
-                            sender
-                                .send(HookManagerResponse::Ok)
-                                .unwrap_or_else(|e| eprintln!("Error during send: {}", e));
                         }
                     },
                     Err(e) => panic!("Hook manager failed: {}", e),

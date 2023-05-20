@@ -19,7 +19,7 @@ pub enum HookManagerAction {
     List(Sender<HookManagerResponse>, Prefix),
 
     /// Send data to defined hooks
-    Send(Sender<HookManagerResponse>, Key, Value),
+    Send(Key, Value),
 }
 
 #[derive(Debug, Eq, PartialEq)]
