@@ -81,4 +81,5 @@
 #![allow(dead_code)]
 
 pub mod datastore;
+pub mod hook;
 mod tests;

@@ -58,7 +58,7 @@ impl Database {
     /// let result = db.insert(KeyType::Record("/root/network/dns-stats".to_string()), ValueType::RecordPointer("ok".to_string()));
     /// ```
     pub fn insert(&mut self, key: KeyType, value: ValueType) -> Result<(), ErrorKind> {
-        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
+        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
 
         let mut table = Box::new(&mut self.root);
         let last_route = key_routes[key_routes.len() - 1];
@@ -120,8 +120,8 @@ impl Database {
             ));
         }
 
-        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
-        let table = match utilities::find_table(
+        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::inernal::find_table(
             Box::new(&self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
@@ -178,8 +178,8 @@ impl Database {
         }
 
         // Find the base table
-        let key_routes = utilities::validate_key(key_prefix.get_key(), &self.name)?;
-        let table = match utilities::find_table(Box::new(&self.root), key_routes) {
+        let key_routes = utilities::inernal::validate_key(key_prefix.get_key(), &self.name)?;
+        let table = match utilities::inernal::find_table(Box::new(&self.root), key_routes) {
             Some(table) => table,
             None => {
                 return Err(ErrorKind::InvalidKey(
@@ -189,7 +189,7 @@ impl Database {
         };
 
         // Get the information
-        let result = utilities::display_tables(table, key_prefix.get_key(), &level)?;
+        let result = utilities::inernal::display_tables(table, key_prefix.get_key(), &level)?;
 
         return Ok(result);
     }
@@ -218,8 +218,8 @@ impl Database {
             ));
         }
 
-        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
-        let table = match utilities::find_table_mut(
+        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::inernal::find_table_mut(
             Box::new(&mut self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
@@ -274,8 +274,8 @@ impl Database {
             ));
         }
 
-        let key_routes = utilities::validate_key(key.get_key(), &self.name)?;
-        let table = match utilities::find_table_mut(
+        let key_routes = utilities::inernal::validate_key(key.get_key(), &self.name)?;
+        let table = match utilities::inernal::find_table_mut(
             Box::new(&mut self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
