@@ -1,35 +1,5 @@
-//! Enum for the crate
-
-use crate::types::{ResultWithList, ResultWithResult, ResultWithoutResult, Table};
 use std::cmp::Ordering;
 use std::fmt::Display;
-use std::sync::mpsc::Sender;
-
-///
-/// Possible error types that database can return
-///
-#[derive(Debug)]
-pub enum ErrorKind {
-    /// The root name in the key does not match with the root table name
-    InvalidRoot(String),
-
-    /// Wrong key is specified, reason in the message
-    InvalidKey(String),
-
-    /// Oops, it should not happen
-    InternalError(String),
-}
-
-impl std::fmt::Display for ErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let response = match self {
-            Self::InvalidKey(message) => format!("Invalid key: {message}"),
-            Self::InvalidRoot(message) => format!("Invalid root: {message}"),
-            Self::InternalError(message) => format!("Internal error: {message}"),
-        };
-        return write!(f, "{}", response);
-    }
-}
 
 ///
 /// Key type that database accept, it can be record or another table
@@ -115,22 +85,12 @@ impl PartialEq for KeyType {
 }
 
 ///
-/// Specifiy the level for listing key function
-///
-#[derive(PartialEq, Clone)]
-pub enum ListType {
-    /// List only the current level
-    OneLevel,
-
-    /// List everything under it on recursive way
-    All,
-}
-
 /// Type of the value
+/// 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValueType {
     /// This is a table pointer, belongs to `KeyType::Table`
-    TablePointer(Table),
+    TablePointer(super::Table),
 
     /// This is a record pointer, belongs to `KeyType::Record`
     RecordPointer(String),
@@ -149,24 +109,4 @@ impl ValueType {
     pub fn is_record(&self) -> bool {
         return !self.is_table();
     }
-}
-
-///
-/// Actions for built-in server
-///
-pub enum DatabaseAction {
-    /// Set or update a key-value pair
-    Set(Sender<ResultWithoutResult>, String, String),
-
-    /// Get a value for a key
-    Get(Sender<ResultWithResult>, String),
-
-    /// Delete a pair
-    DeleteKey(Sender<ResultWithoutResult>, String),
-
-    /// Delete a whole table
-    DeleteTable(Sender<ResultWithoutResult>, String),
-
-    /// List keys from a route
-    ListKeys(Sender<ResultWithList>, String, ListType),
 }
