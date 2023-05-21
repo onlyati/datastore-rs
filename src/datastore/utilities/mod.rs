@@ -28,7 +28,8 @@ use super::{
 };
 
 /// Initialize database on another thread, create a channel and return with it
-///
+/// For all possible action check `onlyati::datastore::enums::mod::DatabaseAction` enum.
+/// 
 /// # Example for call
 ///
 /// ```
