@@ -5,7 +5,7 @@ use super::{
 /// Validate and parse the key string.
 /// For example: /root/status/sub1 -> ["root", "status", "sub1"]
 pub(crate) fn validate_key<'a>(
-    key_string: &'a String,
+    key_string: &'a str,
     db_name: &String,
 ) -> Result<Vec<&'a str>, ErrorKind> {
     if &key_string[0..1] != "/" {
@@ -75,7 +75,7 @@ pub(crate) fn find_table_mut<'a>(
 }
 
 /// Display all items from a table
-pub(crate) fn display_tables(
+pub(crate) fn display_tables<'a>(
     db: Box<&Table>,
     key_prefix: &String,
     level: &ListType,
@@ -85,7 +85,8 @@ pub(crate) fn display_tables(
     for (key, value) in db.iter() {
         match key {
             KeyType::Record(key) => {
-                let new_key = KeyType::Record(key_prefix.clone() + "/" + key);
+                let new_key = format!("{}/{}", key_prefix.clone(), key);
+                let new_key = KeyType::Record(new_key);
                 result.push(new_key);
             }
             KeyType::Table(key) => {

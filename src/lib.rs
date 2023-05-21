@@ -35,11 +35,13 @@
 //!     utilities::{start_datastore, self},
 //! };
 //! use onlyati_datastore::hook::utilities::start_hook_manager;
+//! use onlyati_datastore::logger::utilities::start_logger;
 //!
-//! let (sender, _) = start_hook_manager();
+//! let (hook_sender, _) = start_hook_manager();
+//! let (logger_sender, _) = start_logger(&"/tmp/tmp-datastore-log.txt".to_string());
 //!
 //! // Start a new database with active hook manager
-//! let (sender, _) = start_datastore("root".to_string(), Some(sender));
+//! let (sender, _) = start_datastore("root".to_string(), Some(hook_sender), Some(logger_sender));
 //!
 //! // Send a POST request to specified address when records updated within /root/status
 //! let (tx, rx) = utilities::get_channel_for_hook_set();
@@ -93,4 +95,5 @@
 
 pub mod datastore;
 pub mod hook;
+pub mod logger;
 mod tests;

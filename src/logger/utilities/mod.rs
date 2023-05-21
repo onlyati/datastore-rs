@@ -1,0 +1,87 @@
+use std::{
+    sync::mpsc::{self, Receiver, Sender},
+    thread::JoinHandle,
+};
+
+use super::{
+    enums::{LoggerAction, LoggerResponse},
+    LoggerManager,
+};
+
+pub fn start_logger(path: &String) -> (Sender<LoggerAction>, JoinHandle<()>) {
+    let (tx, rx) = mpsc::channel::<LoggerAction>();
+
+    let path = path.clone();
+
+    let thread = std::thread::spawn(move || {
+        let mut logger = LoggerManager::new(path);
+
+        while let Ok(request) = rx.recv() {
+            tracing::trace!("request has come: {}", request);
+            match request {
+                LoggerAction::Resume(sender) => match logger.resume() {
+                    Ok(_) => send_response!(sender, LoggerResponse::Ok),
+                    Err(e) => send_response!(sender, LoggerResponse::Err(e)),
+                },
+                LoggerAction::Suspend(sender) => match logger.suspend() {
+                    Ok(_) => send_response!(sender, LoggerResponse::Ok),
+                    Err(e) => send_response!(sender, LoggerResponse::Err(e)),
+                }
+                LoggerAction::Write(sender, lines) => {                    
+                    if let Err(e) = logger.start() {
+                        tracing::error!("failed to start logging: {}", e);
+                        send_response!(sender, LoggerResponse::Err(e));
+                        continue;
+                    }
+
+                    for line in lines {
+                        if let Err(e) = logger.write(line) {
+                            tracing::error!("failed to write logging: {}", e);
+                            send_response!(sender, LoggerResponse::Err(e));
+                            continue;
+                        }
+                    }
+
+                    if let Err(e) = logger.stop() {
+                        tracing::error!("failed to stop logging: {}", e);
+                        send_response!(sender, LoggerResponse::Err(e));
+                    }
+
+                    send_response!(sender, LoggerResponse::Ok);
+                }
+                LoggerAction::WriteAsync(lines) => {
+                    if let Err(e) = logger.start() {
+                        tracing::error!("failed to start logging: {}", e);
+                        continue;
+                    }
+
+                    for line in lines {
+                        if let Err(e) = logger.write(line) {
+                            tracing::error!("failed to write logging: {}", e);
+                            continue;
+                        }
+                    }
+
+                    if let Err(e) = logger.stop() {
+                        tracing::error!("failed to stop logging: {}", e);
+                    }
+                }
+            }
+        }
+    });
+
+    return (tx, thread);
+}
+
+pub fn get_channel_for_log_write() -> (Sender<LoggerResponse>, Receiver<LoggerResponse>) {
+    return mpsc::channel::<LoggerResponse>();
+}
+
+macro_rules! send_response {
+    ($sender:expr, $value:expr) => {
+        $sender
+            .send($value)
+            .unwrap_or_else(|e| tracing::error!("Error during send: {}", e))
+    };
+}
+pub(self) use send_response;

@@ -129,7 +129,7 @@ mod tests {
     fn hook_manager_with_datastore() {
         let (sender, _) = utilities::start_hook_manager();
         let (sender, _) =
-            crate::datastore::utilities::start_datastore("root".to_string(), Some(sender));
+            crate::datastore::utilities::start_datastore("root".to_string(), Some(sender), None);
 
         // Add one hook
         let (tx, rx) = get_channel_for_hook_set();
