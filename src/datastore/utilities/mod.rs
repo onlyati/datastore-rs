@@ -12,7 +12,9 @@ use crate::{
         enums::{HookManagerAction, HookManagerResponse},
         utilities::get_channel,
     },
-    logger::enums::LoggerAction,
+    logger::{
+        enums::{LogItem, LoggerAction},
+    },
 };
 
 use super::{
@@ -54,7 +56,7 @@ use super::{
 pub fn start_datastore(
     name: String,
     hook_sender: Option<Sender<HookManagerAction>>,
-    logger_sender: Option<Sender<LoggerAction<'static>>>,
+    logger_sender: Option<Sender<LoggerAction>>,
 ) -> (Sender<DatabaseAction>, JoinHandle<()>) {
     tracing::debug!("root element of database is '{}'", name);
     let (tx, rx) = std::sync::mpsc::channel::<DatabaseAction>();
@@ -68,7 +70,7 @@ pub fn start_datastore(
         }
 
         if let Some(sender) = logger_sender {
-            tracing::debug!("subscribed to a logger");
+            tracing::debug!("subscribe to logger");
             db.subscribe_to_logger(sender);
         }
 
@@ -76,124 +78,176 @@ pub fn start_datastore(
             tracing::trace!("received request: {}", data);
             match data {
                 // Handle Get actions
-                DatabaseAction::Get(sender, key) => match db.get(KeyType::Record(key)) {
-                    Ok(value) => send_response!(sender, Ok(value)),
-                    Err(e) => send_response!(sender, Err(e)),
-                },
+                DatabaseAction::Get(sender, key) => {
+                    match db.get(KeyType::Record(key.clone())) {
+                        Ok(value) => send_response!(sender, Ok(value)),
+                        Err(e) => send_response!(sender, Err(e)),
+                    }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::GetKey(key)]);
+                    }
+                }
                 // Handle Set actions
                 DatabaseAction::Set(sender, key, value) => {
-                    match db.insert(KeyType::Record(key), ValueType::RecordPointer(value)) {
+                    match db.insert(
+                        KeyType::Record(key.clone()),
+                        ValueType::RecordPointer(value.clone()),
+                    ) {
                         Ok(_) => send_response!(sender, Ok(())),
                         Err(e) => send_response!(sender, Err(e)),
+                    }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::SetKey(key, value)]);
                     }
                 }
                 // Handle DeleteKey actions
                 DatabaseAction::DeleteKey(sender, key) => {
-                    match db.delete_key(KeyType::Record(key)) {
+                    match db.delete_key(KeyType::Record(key.clone())) {
                         Ok(_) => send_response!(sender, Ok(())),
                         Err(e) => send_response!(sender, Err(e)),
+                    }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::RemKey(key)]);
                     }
                 }
                 // Handle DeleteTable actions
                 DatabaseAction::DeleteTable(sender, key) => {
-                    match db.delete_table(KeyType::Table(key)) {
+                    match db.delete_table(KeyType::Table(key.clone())) {
                         Ok(_) => send_response!(sender, Ok(())),
                         Err(e) => send_response!(sender, Err(e)),
+                    }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::RemPath(key)]);
                     }
                 }
                 // Handle ListKeys action
                 DatabaseAction::ListKeys(sender, key, level) => {
-                    match db.list_keys(KeyType::Record(key), level) {
+                    match db.list_keys(KeyType::Record(key.clone()), level) {
                         Ok(list) => send_response!(sender, Ok(list)),
                         Err(e) => send_response!(sender, Err(e)),
                     }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::ListKeys(key)]);
+                    }
                 }
                 // Set hook
-                DatabaseAction::HookSet(sender, prefix, link) => match &db.hook_sender {
-                    Some(hook_sender) => {
-                        let (tx, rx) = get_channel();
-                        let action = HookManagerAction::Set(tx, prefix, link);
-                        hook_send!(sender, hook_sender, action);
+                DatabaseAction::HookSet(sender, prefix, link) => {
+                    match &db.hook_sender {
+                        Some(hook_sender) => {
+                            let (tx, rx) = get_channel();
+                            let action = HookManagerAction::Set(tx, prefix.clone(), link.clone());
+                            hook_send!(sender, hook_sender, action);
 
-                        match rx.recv() {
-                            Ok(response) => match response {
-                                HookManagerResponse::Ok => send_response!(sender, Ok(())),
-                                _ => send_response!(
-                                    sender,
-                                    Err(ErrorKind::InternalError("Failed to add hook".to_string()))
-                                ),
-                            },
-                            Err(e) => hook_receive_failed!(sender, e),
+                            match rx.recv() {
+                                Ok(response) => match response {
+                                    HookManagerResponse::Ok => send_response!(sender, Ok(())),
+                                    _ => send_response!(
+                                        sender,
+                                        Err(ErrorKind::InternalError(
+                                            "Failed to add hook".to_string()
+                                        ))
+                                    ),
+                                },
+                                Err(e) => hook_receive_failed!(sender, e),
+                            }
                         }
+                        None => hook_inactive!(sender),
                     }
-                    None => hook_inactive!(sender),
-                },
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::SetHook(prefix, link)]);
+                    }
+                }
                 // Get links for specific hook
-                DatabaseAction::HookGet(sender, prefix) => match &db.hook_sender {
-                    Some(hook_sender) => {
-                        let (tx, rx) = get_channel();
-                        let action = HookManagerAction::Get(tx, prefix);
-                        hook_send!(sender, hook_sender, action);
+                DatabaseAction::HookGet(sender, prefix) => {
+                    match &db.hook_sender {
+                        Some(hook_sender) => {
+                            let (tx, rx) = get_channel();
+                            let action = HookManagerAction::Get(tx, prefix.clone());
+                            hook_send!(sender, hook_sender, action);
 
-                        match rx.recv() {
-                            Ok(response) => match response {
-                                HookManagerResponse::Hook(prefix, hooks) => {
-                                    send_response!(sender, Ok((prefix, hooks)))
-                                }
-                                _ => send_response!(
-                                    sender,
-                                    Err(ErrorKind::InvalidKey("Hook is not found".to_string()))
-                                ),
-                            },
-                            Err(e) => hook_receive_failed!(sender, e),
+                            match rx.recv() {
+                                Ok(response) => match response {
+                                    HookManagerResponse::Hook(prefix, hooks) => {
+                                        send_response!(sender, Ok((prefix, hooks)))
+                                    }
+                                    _ => send_response!(
+                                        sender,
+                                        Err(ErrorKind::InvalidKey("Hook is not found".to_string()))
+                                    ),
+                                },
+                                Err(e) => hook_receive_failed!(sender, e),
+                            }
                         }
+                        None => hook_inactive!(sender),
                     }
-                    None => hook_inactive!(sender),
-                },
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::GetHook(prefix)]);
+                    }
+                }
                 // List hooks
-                DatabaseAction::HookList(sender, prefix) => match &db.hook_sender {
-                    Some(hook_sender) => {
-                        let (tx, rx) = get_channel();
-                        let action = HookManagerAction::List(tx, prefix);
+                DatabaseAction::HookList(sender, prefix) => {
+                    match &db.hook_sender {
+                        Some(hook_sender) => {
+                            let (tx, rx) = get_channel();
+                            let action = HookManagerAction::List(tx, prefix.clone());
 
-                        hook_send!(sender, hook_sender, action);
+                            hook_send!(sender, hook_sender, action);
 
-                        match rx.recv() {
-                            Ok(response) => match response {
-                                HookManagerResponse::HookList(list) => {
-                                    send_response!(sender, Ok(list))
-                                }
-                                _ => send_response!(
-                                    sender,
-                                    Err(ErrorKind::InvalidKey("Hook is not found".to_string()))
-                                ),
-                            },
-                            Err(e) => hook_receive_failed!(sender, e),
+                            match rx.recv() {
+                                Ok(response) => match response {
+                                    HookManagerResponse::HookList(list) => {
+                                        send_response!(sender, Ok(list))
+                                    }
+                                    _ => send_response!(
+                                        sender,
+                                        Err(ErrorKind::InvalidKey("Hook is not found".to_string()))
+                                    ),
+                                },
+                                Err(e) => hook_receive_failed!(sender, e),
+                            }
                         }
+                        None => hook_inactive!(sender),
                     }
-                    None => hook_inactive!(sender),
-                },
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::ListHooks(prefix)]);
+                    }
+                }
                 // Remove existing hooks
-                DatabaseAction::HookRemove(sender, prefix, link) => match &db.hook_sender {
-                    Some(hook_sender) => {
-                        let (tx, rx) = get_channel();
-                        let action = HookManagerAction::Remove(tx, prefix, link);
+                DatabaseAction::HookRemove(sender, prefix, link) => {
+                    match &db.hook_sender {
+                        Some(hook_sender) => {
+                            let (tx, rx) = get_channel();
+                            let action =
+                                HookManagerAction::Remove(tx, prefix.clone(), link.clone());
 
-                        hook_send!(sender, hook_sender, action);
+                            hook_send!(sender, hook_sender, action);
 
-                        match rx.recv() {
-                            Ok(response) => match response {
-                                HookManagerResponse::Ok => send_response!(sender, Ok(())),
-                                _ => send_response!(
-                                    sender,
-                                    Err(ErrorKind::InvalidKey("Hook is not found".to_string()))
-                                ),
-                            },
-                            Err(e) => hook_receive_failed!(sender, e),
+                            match rx.recv() {
+                                Ok(response) => match response {
+                                    HookManagerResponse::Ok => send_response!(sender, Ok(())),
+                                    _ => send_response!(
+                                        sender,
+                                        Err(ErrorKind::InvalidKey("Hook is not found".to_string()))
+                                    ),
+                                },
+                                Err(e) => hook_receive_failed!(sender, e),
+                            }
                         }
+                        None => hook_inactive!(sender),
                     }
-                    None => hook_inactive!(sender),
-                },
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::RemHook(prefix, link)]);
+                    }
+                }
             }
         }
     });
@@ -284,3 +338,12 @@ macro_rules! send_response {
     }};
 }
 pub(self) use send_response;
+
+macro_rules! write_log {
+    ($logger_sender:expr, $messages:expr) => {
+        $logger_sender
+            .send(LoggerAction::WriteAsync($messages))
+            .unwrap_or_else(|e| tracing::error!("{}", e));
+    };
+}
+pub(self) use write_log;

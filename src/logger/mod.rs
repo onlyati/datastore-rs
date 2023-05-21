@@ -24,31 +24,31 @@ pub mod utilities;
 ///
 /// // Create a new logger instance that will run into a temp file
 /// // Normally this point to a file that is not temporary
-/// let mut logger = LoggerManager::new(Path::new("/tmp/datastore-log-monday"));
+/// let mut logger = LoggerManager::new("/tmp/datastore-log-monday".to_string());
 ///
 /// // Start the logger
 /// logger.start().expect("Failed to start logger");
 ///
 /// // Write some line
-/// logger.write(LogItem::GetKey("/root/agent/procops/status")).expect("Failed to write");
-/// logger.write(LogItem::SetKey("/root/agent/procops/status", "unavailable")).expect("Failed to write");
+/// logger.write(LogItem::GetKey("/root/agent/procops/status".to_string())).expect("Failed to write");
+/// logger.write(LogItem::SetKey("/root/agent/procops/status".to_string(), "unavailable".to_string())).expect("Failed to write");
 ///
 /// // Stop the logger
 /// logger.stop().expect("Failed to stop logger");
 /// ```
 /// 
 /// For more details check `src/tests/logger.rs` file.
-pub struct LoggerManager<'a> {
-    path: &'a Path,
+pub struct LoggerManager {
+    path: String,
     state: LogState,
     file: Option<BufWriter<File>>,
-    buffer: Vec<(DateTime<Utc>, LogItem<'a>)>,
+    buffer: Vec<(DateTime<Utc>, LogItem)>,
 }
 
-impl<'a> LoggerManager<'a> {
+impl LoggerManager {
     /// Allocate new logger
-    pub fn new(path: &'a Path) -> Self {
-        tracing::trace!("allocate new log manager with '{}' path", path.display());
+    pub fn new(path: String) -> Self {
+        tracing::trace!("allocate new log manager with '{}' path", path);
         return LoggerManager {
             path,
             state: LogState::Close,
@@ -65,7 +65,7 @@ impl<'a> LoggerManager<'a> {
             .write(true)
             .read(true)
             .append(true)
-            .open(self.path)
+            .open(Path::new(&self.path))
         {
             Ok(file) => {
                 tracing::trace!("log file is open");
@@ -132,7 +132,7 @@ impl<'a> LoggerManager<'a> {
     }
 
     /// Make a write reqest
-    pub fn write(&mut self, item: LogItem<'a>) -> Result<(), String> {
+    pub fn write(&mut self, item: LogItem) -> Result<(), String> {
         let now = Utc::now();
 
         match &mut self.state {
@@ -163,7 +163,7 @@ impl<'a> LoggerManager<'a> {
             }
             // Buffer lines into memory
             LogState::Suspended => {
-                self.buffer.push((now, item));
+                self.buffer.push((now, item.clone()));
                 return Ok(());
             }
         }

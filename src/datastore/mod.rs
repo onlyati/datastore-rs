@@ -14,7 +14,7 @@ use self::{
 };
 
 /// Database struct
-pub struct Database<'a> {
+pub struct Database {
     /// Name of database
     name: String,
 
@@ -24,11 +24,11 @@ pub struct Database<'a> {
     /// Sender to HookManager
     hook_sender: Option<Sender<HookManagerAction>>,
 
-    /// Sender for Logger
-    logger_sender: Option<Sender<LoggerAction<'a>>>,
+    /// Logger function
+    logger_sender: Option<Sender<LoggerAction>>,
 }
 
-impl<'a> Database<'a> {
+impl Database {
     /// Create new database and return with the struct.
     ///
     /// # Arguments
@@ -74,8 +74,8 @@ impl<'a> Database<'a> {
         self.hook_sender = Some(sender);
     }
 
-    pub fn subscribe_to_logger(&mut self, sender: Sender<LoggerAction<'a>>) {
-        tracing::trace!("subscriber to logger");
+    pub fn subscribe_to_logger(&mut self, sender: Sender<LoggerAction>) {
+        tracing::trace!("subscribe to logger");
         self.logger_sender = Some(sender);
     }
 

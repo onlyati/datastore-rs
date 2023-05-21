@@ -109,4 +109,11 @@ impl ValueType {
     pub fn is_record(&self) -> bool {
         return !self.is_table();
     }
+
+    pub fn get_value(&self) -> &str {
+        return match self {
+            Self::TablePointer(_) => "TablePointer",
+            Self::RecordPointer(key) => &key[..],
+        };
+    }
 }

@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::{
     sync::mpsc::{self, Receiver, Sender},
     thread::JoinHandle,
@@ -9,13 +8,13 @@ use super::{
     LoggerManager,
 };
 
-pub fn start_logger(path: &String) -> (Sender<LoggerAction<'static>>, JoinHandle<()>) {
+pub fn start_logger(path: &String) -> (Sender<LoggerAction>, JoinHandle<()>) {
     let (tx, rx) = mpsc::channel::<LoggerAction>();
 
     let path = path.clone();
 
     let thread = std::thread::spawn(move || {
-        let mut logger = LoggerManager::new(Path::new(&path));
+        let mut logger = LoggerManager::new(path);
 
         while let Ok(request) = rx.recv() {
             tracing::trace!("request has come: {}", request);

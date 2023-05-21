@@ -2,20 +2,20 @@ use std::sync::mpsc::Sender;
 
 /// Item for every action in datastore
 #[derive(Clone, Debug)]
-pub enum LogItem<'a> {
-    SetKey(&'a str, &'a str),
-    GetKey(&'a str),
-    RemKey(&'a str),
-    RemPath(&'a str),
-    ListKeys(&'a str),
-    SetHook(&'a str, &'a str),
-    GetHook(&'a str, &'a str),
-    RemHook(&'a str, &'a str),
-    ListHooks(&'a str),
-    HookExecute(&'a str, &'a Vec<String>)
+pub enum LogItem {
+    SetKey(String, String),
+    GetKey(String),
+    RemKey(String),
+    RemPath(String),
+    ListKeys(String),
+    SetHook(String, String),
+    GetHook(String),
+    RemHook(String, String),
+    ListHooks(String),
+    HookExecute(String, Vec<String>)
 }
 
-impl<'a> std::fmt::Display for LogItem<'a> {
+impl std::fmt::Display for LogItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = match self {
             Self::SetKey(key, value) => format!("SetKey [ '{}', '{}' ]", key, value),
@@ -24,7 +24,7 @@ impl<'a> std::fmt::Display for LogItem<'a> {
             Self::RemPath(key) => format!("RemPath [ '{}' ]", key),
             Self::ListKeys(key) => format!("ListKeys [ '{}' ]", key),
             Self::SetHook(prefix, link) => format!("SetHook [ '{}', '{}' ]", prefix, link),
-            Self::GetHook(prefix, link) => format!("GetHook [ '{}', '{}' ]", prefix, link),
+            Self::GetHook(prefix) => format!("GetHook [ '{}' ]", prefix),
             Self::RemHook(prefix, link) => format!("RemHook [ '{}', '{}' ]", prefix, link),
             Self::ListHooks(prefix) => format!("ListHooks [ '{}' ]", prefix),
             Self::HookExecute(prefix, links) => format!("HookExecute [ '{}', '{:?}' ]", prefix, links),
@@ -57,7 +57,7 @@ pub enum LoggerResponse {
 }
 
 /// Enums for the `start_logger` utility taht can be used with an std::sync::mpsc::Sender<LoggerAction> sender.
-pub enum LoggerAction<'a> {
+pub enum LoggerAction {
     /// Close log file and buffer further message
     Suspend(Sender<LoggerResponse>),
 
@@ -65,11 +65,11 @@ pub enum LoggerAction<'a> {
     Resume(Sender<LoggerResponse>),
 
     /// Write request
-    Write(Sender<LoggerResponse>, Vec<LogItem<'a>>),
-    WriteAsync(Vec<LogItem<'a>>),
+    Write(Sender<LoggerResponse>, Vec<LogItem>),
+    WriteAsync(Vec<LogItem>),
 }
 
-impl<'a> std::fmt::Display for LoggerAction<'a> {
+impl std::fmt::Display for LoggerAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = match self {
             Self::Resume(_) => "Resume".to_string(),
