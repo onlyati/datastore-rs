@@ -62,6 +62,12 @@ pub enum DatabaseAction {
 
     /// List hooks
     HookList(Sender<ResultWithHooks>, Prefix),
+
+    /// Command to suspend the logging
+    SuspendLog(Sender<ResultWithoutResult>),
+
+    /// Command to resume the logging
+    ResumeLog(Sender<ResultWithoutResult>),
 }
 
 impl std::fmt::Display for DatabaseAction {
@@ -76,6 +82,8 @@ impl std::fmt::Display for DatabaseAction {
             Self::HookGet(_, prefix) => format!("HookGet[{}]", prefix),
             Self::HookRemove(_, prefix, link) => format!("HookRemove[{}, {}]", prefix, link),
             Self::HookList(_, prefix) => format!("HookList[{}]", prefix),
+            Self::SuspendLog(_) => format!("SuspendLog"),
+            Self::ResumeLog(_) => format!("ResumeLog"),
         };
         return write!(f, "{}", text);
     }

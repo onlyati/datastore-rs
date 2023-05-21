@@ -13,7 +13,8 @@ use crate::{
         utilities::get_channel,
     },
     logger::{
-        enums::{LogItem, LoggerAction},
+        enums::{LogItem, LoggerAction, LoggerResponse},
+        utilities::get_channel_for_log_write,
     },
 };
 
@@ -246,6 +247,46 @@ pub fn start_datastore(
 
                     if let Some(sender) = &db.logger_sender {
                         write_log!(sender, vec![LogItem::RemHook(prefix, link)]);
+                    }
+                }
+                // Resume logging
+                DatabaseAction::ResumeLog(sender) => {
+                    if let Some(logger_sender) = &db.logger_sender {
+                        let (tx, rx) = get_channel_for_log_write();
+                        send_response!(logger_sender, LoggerAction::Resume(tx));
+
+                        match rx.recv() {
+                            Ok(response) => match response {
+                                LoggerResponse::Ok => send_response!(sender, Ok(())),
+                                LoggerResponse::Err(e) => {
+                                    send_response!(sender, Err(ErrorKind::LogError(e)))
+                                }
+                            },
+                            Err(e) => {
+                                tracing::error!("failed to receive: {}", e);
+                                send_response!(sender, Err(ErrorKind::LogError(e.to_string())));
+                            }
+                        }
+                    }
+                }
+                // Suspend logging
+                DatabaseAction::SuspendLog(sender) => {
+                    if let Some(logger_sender) = &db.logger_sender {
+                        let (tx, rx) = get_channel_for_log_write();
+                        send_response!(logger_sender, LoggerAction::Suspend(tx));
+
+                        match rx.recv() {
+                            Ok(response) => match response {
+                                LoggerResponse::Ok => send_response!(sender, Ok(())),
+                                LoggerResponse::Err(e) => {
+                                    send_response!(sender, Err(ErrorKind::LogError(e)))
+                                }
+                            },
+                            Err(e) => {
+                                tracing::error!("failed to receive: {}", e);
+                                send_response!(sender, Err(ErrorKind::LogError(e.to_string())));
+                            }
+                        }
                     }
                 }
             }
