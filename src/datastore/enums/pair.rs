@@ -28,7 +28,7 @@ impl KeyType {
     }
 
     /// Return with the record name or the table name
-    pub fn get_key(&self) -> &String {
+    pub fn get_key(&self) -> &str {
         return match self {
             KeyType::Record(key) => key,
             KeyType::Table(key) => key,
@@ -73,7 +73,7 @@ impl PartialOrd for KeyType {
     }
 }
 
-impl PartialEq for KeyType {
+impl<'a> PartialEq for KeyType {
     fn eq(&self, other: &Self) -> bool {
         if (self.is_record() && other.is_record()) || (self.is_table() && other.is_table()) {
             if self.get_key() == other.get_key() {
@@ -86,7 +86,7 @@ impl PartialEq for KeyType {
 
 ///
 /// Type of the value
-/// 
+///
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValueType {
     /// This is a table pointer, belongs to `KeyType::Table`

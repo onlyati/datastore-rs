@@ -6,7 +6,7 @@ pub mod utilities;
 
 use std::sync::mpsc::Sender;
 
-use crate::hook::enums::HookManagerAction;
+use crate::{hook::enums::HookManagerAction, logger::enums::LoggerAction};
 
 use self::{
     enums::{error::ErrorKind, pair::KeyType, pair::ValueType, ListType},
@@ -14,7 +14,7 @@ use self::{
 };
 
 /// Database struct
-pub struct Database {
+pub struct Database<'a> {
     /// Name of database
     name: String,
 
@@ -23,9 +23,12 @@ pub struct Database {
 
     /// Sender to HookManager
     hook_sender: Option<Sender<HookManagerAction>>,
+
+    /// Sender for Logger
+    logger_sender: Option<Sender<LoggerAction<'a>>>,
 }
 
-impl Database {
+impl<'a> Database<'a> {
     /// Create new database and return with the struct.
     ///
     /// # Arguments
@@ -51,6 +54,7 @@ impl Database {
             name: root_name,
             root: Table::new(),
             hook_sender: None,
+            logger_sender: None,
         });
     }
 
@@ -68,6 +72,11 @@ impl Database {
     pub fn subscribe_to_hook_manager(&mut self, sender: Sender<HookManagerAction>) {
         tracing::trace!("subscribe to hook manager");
         self.hook_sender = Some(sender);
+    }
+
+    pub fn subscribe_to_logger(&mut self, sender: Sender<LoggerAction<'a>>) {
+        tracing::trace!("subscriber to logger");
+        self.logger_sender = Some(sender);
     }
 
     /// Insert or update key into database. Return with nothing if the insert was successful. Else with an error code.
@@ -88,6 +97,7 @@ impl Database {
     /// ```
     pub fn insert(&mut self, key: KeyType, value: ValueType) -> Result<(), ErrorKind> {
         tracing::trace!("set request is performed for '{}'", key.get_key());
+
         let key_routes = utilities::internal::validate_key(key.get_key(), &self.name)?;
 
         let mut table = Box::new(&mut self.root);
@@ -96,7 +106,7 @@ impl Database {
         let mut current_route = key_routes[route_index].to_string();
 
         while last_route != current_route {
-            let temp_key = KeyType::Table(current_route.clone());
+            let temp_key = KeyType::Table(current_route);
             table
                 .entry(temp_key.clone())
                 .or_insert(ValueType::TablePointer(Table::new()));
@@ -130,7 +140,7 @@ impl Database {
         if let Some(sender) = &self.hook_sender {
             tracing::trace!("send alert to hook manager about '{}' key", key.get_key());
             if let ValueType::RecordPointer(value) = &value {
-                let action = HookManagerAction::Send(key.get_key().clone(), value.clone());
+                let action = HookManagerAction::Send(key.get_key().to_string(), value.to_string());
                 sender
                     .send(action)
                     .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
@@ -216,7 +226,7 @@ impl Database {
     /// println!("{:?}", list);
     /// ```
     pub fn list_keys(
-        &self,
+        &mut self,
         key_prefix: KeyType,
         level: ListType,
     ) -> Result<Vec<KeyType>, ErrorKind> {
@@ -246,7 +256,8 @@ impl Database {
         };
 
         // Get the information
-        let result = utilities::internal::display_tables(table, key_prefix.get_key(), &level)?;
+        let result =
+            utilities::internal::display_tables(table, &key_prefix.get_key().to_string(), &level)?;
 
         tracing::trace!("list keys request is done for '{}'", key_prefix.get_key());
         return Ok(result);

@@ -7,14 +7,20 @@ use std::{
 
 pub(crate) mod internal;
 
-use crate::hook::{
-    enums::{HookManagerAction, HookManagerResponse},
-    utilities::get_channel,
+use crate::{
+    hook::{
+        enums::{HookManagerAction, HookManagerResponse},
+        utilities::get_channel,
+    },
+    logger::enums::LoggerAction,
 };
 
 use super::{
     enums::{error::ErrorKind, pair::KeyType, pair::ValueType, DatabaseAction, ListType},
-    types::{ResultWithList, ResultWithResult, ResultWithoutResult, Table, ResultWithHook, ResultWithHooks},
+    types::{
+        ResultWithHook, ResultWithHooks, ResultWithList, ResultWithResult, ResultWithoutResult,
+        Table,
+    },
     Database,
 };
 
@@ -28,7 +34,7 @@ use super::{
 ///     utilities::{start_datastore, self},
 /// };
 ///
-/// let (sender, _) = start_datastore("root".to_string(), None);
+/// let (sender, _) = start_datastore("root".to_string(), None, None);
 ///
 /// // Add a new pair
 /// let (tx, rx) = utilities::get_channel_for_set();
@@ -47,7 +53,8 @@ use super::{
 /// ```
 pub fn start_datastore(
     name: String,
-    sender: Option<Sender<HookManagerAction>>,
+    hook_sender: Option<Sender<HookManagerAction>>,
+    logger_sender: Option<Sender<LoggerAction<'static>>>,
 ) -> (Sender<DatabaseAction>, JoinHandle<()>) {
     tracing::debug!("root element of database is '{}'", name);
     let (tx, rx) = std::sync::mpsc::channel::<DatabaseAction>();
@@ -55,9 +62,14 @@ pub fn start_datastore(
     let thread = std::thread::spawn(move || {
         let mut db = Database::new(name).expect("Failed to allocate database");
 
-        if let Some(sender) = sender {
+        if let Some(sender) = hook_sender {
             tracing::debug!("subscribed to a hook manager");
             db.subscribe_to_hook_manager(sender);
+        }
+
+        if let Some(sender) = logger_sender {
+            tracing::debug!("subscribed to a logger");
+            db.subscribe_to_logger(sender);
         }
 
         while let Ok(data) = rx.recv() {
@@ -220,7 +232,8 @@ pub fn get_channel_for_hook_get() -> (Sender<ResultWithHook>, Receiver<ResultWit
 }
 
 /// Return with channel for HookRemove action
-pub fn get_channel_for_hook_remove() -> (Sender<ResultWithoutResult>, Receiver<ResultWithoutResult>) {
+pub fn get_channel_for_hook_remove() -> (Sender<ResultWithoutResult>, Receiver<ResultWithoutResult>)
+{
     return std::sync::mpsc::channel::<ResultWithoutResult>();
 }
 

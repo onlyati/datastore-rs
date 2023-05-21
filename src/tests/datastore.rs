@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn server_test() {
-        let (sender, _) = start_datastore("root".to_string(), None);
+        let (sender, _) = start_datastore("root".to_string(), None, None);
 
         // Add a new pair
         let (tx, rx) = utilities::get_channel_for_set();
