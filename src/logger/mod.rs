@@ -60,6 +60,7 @@ impl LoggerManager {
     /// Open a buffer for the specified file
     /// After it, every write request will be directly written to file
     pub fn start(&mut self) -> Result<(), String> {
+        tracing::trace!("opening file for write");
         match File::options()
             .create(true)
             .write(true)
@@ -86,6 +87,7 @@ impl LoggerManager {
         match &mut self.file {
             Some(_) => {
                 self.file = None;
+                tracing::trace!("closed the log file");
                 return Ok(());
             }
             None => return Err(String::from("Logger manager does not run")),
@@ -96,6 +98,7 @@ impl LoggerManager {
     /// Instead buffer every message into memory.
     /// They will be written if the logging has resumed.
     pub fn suspend(&mut self) -> Result<(), String> {
+        tracing::trace!("suspend the logging");
         if self.file.is_some() {
             self.file = None;
         }
@@ -107,6 +110,7 @@ impl LoggerManager {
     /// Resume the logging means that those message which were buffered during suspended status will be written first.
     /// Then status will be LogState::Open again.
     pub fn resume(&mut self) -> Result<(), String> {
+        tracing::trace!("resume the logging");
         if self.state != LogState::Suspended {
             return Err(String::from("Only possible resume from LogState::Suspend"));
         }
@@ -128,16 +132,19 @@ impl LoggerManager {
         self.buffer = Vec::new();
 
         self.state = LogState::Open;
+        tracing::trace!("logging has resumed");
         return Ok(());
     }
 
     /// Make a write reqest
     pub fn write(&mut self, item: LogItem) -> Result<(), String> {
+        tracing::trace!("write log record");
         let now = Utc::now();
 
         match &mut self.state {
             // Logger is stopped
             LogState::Close => {
+                tracing::trace!("write is abandoned due to it is not open");
                 return Err(String::from("Stream is closed, start required for logger"))
             }
             // Regular write to a file
@@ -146,7 +153,10 @@ impl LoggerManager {
                     Some(file) => {
                         let line = format!("{} {}\n", now, item);
                         match file.write_all(line.as_bytes()) {
-                            Ok(_) => return Ok(()),
+                            Ok(_) => {
+                                tracing::trace!("write is done");
+                                return Ok(());
+                            },
                             Err(e) => {
                                 tracing::error!("error during log writing: {}", e);
                                 return Err(format!("error during log writing: {}", e));
@@ -164,6 +174,7 @@ impl LoggerManager {
             // Buffer lines into memory
             LogState::Suspended => {
                 self.buffer.push((now, item.clone()));
+                tracing::trace!("write is done in suspended mode");
                 return Ok(());
             }
         }
