@@ -30,7 +30,7 @@ use super::{
 
 /// Initialize database on another thread, create a channel and return with it
 /// For all possible action check `onlyati::datastore::enums::mod::DatabaseAction` enum.
-/// 
+///
 /// # Example for call
 ///
 /// ```
@@ -59,7 +59,7 @@ use super::{
 pub fn start_datastore(
     name: String,
     hook_sender: Option<Arc<Mutex<Sender<HookManagerAction>>>>,
-    logger_sender: Option<Sender<LoggerAction>>,
+    logger_sender: Option<Arc<Mutex<Sender<LoggerAction>>>>,
 ) -> (Sender<DatabaseAction>, JoinHandle<()>) {
     tracing::debug!("root element of database is '{}'", name);
     let (tx, rx) = std::sync::mpsc::channel::<DatabaseAction>();
@@ -255,7 +255,7 @@ pub fn start_datastore(
                 DatabaseAction::ResumeLog(sender) => {
                     if let Some(logger_sender) = &db.logger_sender {
                         let (tx, rx) = get_channel_for_log_write();
-                        send_response!(logger_sender, LoggerAction::Resume(tx));
+                        send_response_with_mutex_sender!(logger_sender, LoggerAction::Resume(tx));
 
                         match rx.recv() {
                             Ok(response) => match response {
@@ -275,7 +275,7 @@ pub fn start_datastore(
                 DatabaseAction::SuspendLog(sender) => {
                     if let Some(logger_sender) = &db.logger_sender {
                         let (tx, rx) = get_channel_for_log_write();
-                        send_response!(logger_sender, LoggerAction::Suspend(tx));
+                        send_response_with_mutex_sender!(logger_sender, LoggerAction::Suspend(tx));
 
                         match rx.recv() {
                             Ok(response) => match response {
@@ -383,9 +383,20 @@ macro_rules! send_response {
 }
 pub(self) use send_response;
 
+macro_rules! send_response_with_mutex_sender {
+    ($sender:expr, $value:expr) => {{
+        let sender = $sender.lock().expect("Failed to lock sender");
+        sender
+            .send($value)
+            .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
+    }};
+}
+pub(self) use send_response_with_mutex_sender;
+
 macro_rules! write_log {
     ($logger_sender:expr, $messages:expr) => {
-        $logger_sender
+        let sender = $logger_sender.lock().expect("Failed to lock sender");
+        sender
             .send(LoggerAction::WriteAsync($messages))
             .unwrap_or_else(|e| tracing::error!("{}", e));
     };

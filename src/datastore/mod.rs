@@ -26,7 +26,7 @@ pub struct Database {
     hook_sender: Option<Arc<Mutex<Sender<HookManagerAction>>>>,
 
     /// Logger function
-    logger_sender: Option<Sender<LoggerAction>>,
+    logger_sender: Option<Arc<Mutex<Sender<LoggerAction>>>>,
 }
 
 impl Database {
@@ -85,9 +85,9 @@ impl Database {
     /// ```
     /// let (sender, _) = onlyati_datastore::logger::utilities::start_logger(&"/tmp/datastore-tmp.txt".to_string());
     /// let mut db = onlyati_datastore::datastore::Database::new("root".to_string()).unwrap();
-    /// db.subscribe_to_logger(sender);
+    /// db.subscribe_to_logger(std::sync::Arc::new(std::sync::Mutex::new(sender)));
     /// ```
-    pub fn subscribe_to_logger(&mut self, sender: Sender<LoggerAction>) {
+    pub fn subscribe_to_logger(&mut self, sender: Arc<Mutex<Sender<LoggerAction>>>) {
         tracing::trace!("subscribe to logger");
         self.logger_sender = Some(sender);
     }

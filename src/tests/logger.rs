@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test {
     use std::path::Path;
+    use std::sync::{Arc, Mutex};
 
     use crate::{logger::{
         enums::{LogItem, LoggerAction, LoggerResponse},
@@ -146,6 +147,7 @@ mod test {
         }
 
         let (logger_sender, _) = start_logger(&path);
+        let logger_sender = Arc::new(Mutex::new(logger_sender));
         let (sender, _) = start_datastore("root".to_string(), None, Some(logger_sender));
 
         let (tx, rx) = get_channel_for_set();
