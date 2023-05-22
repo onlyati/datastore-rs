@@ -89,9 +89,6 @@ mod test {
         let result = manager.resume();
         assert_eq!(true, result.is_ok());
 
-        let result = manager.stop();
-        assert_eq!(true, result.is_ok());
-
         // Check line numbers again, should be more with one
         let content = std::fs::read_to_string(path.clone()).expect("Failed to open file for line counting");
         let count3: Vec<&str> = content.lines().collect();
@@ -182,10 +179,24 @@ mod test {
 
         std::thread::sleep(std::time::Duration::new(1, 0)); // Wait some time that the async write will be finished
 
-        let content = std::fs::read_to_string(path).expect("Failed to open file for line counting");
+        let content = std::fs::read_to_string(path.clone()).expect("Failed to open file for line counting");
         let count2: Vec<&str> = content.lines().collect();
         let count2 = count2.len();
 
         assert_eq!(count, count2);
+
+        // Now do a resume and check log lines in file
+        let (tx, rx) = channel();
+        let action = DatabaseAction::ResumeLog(tx);
+
+        sender.send(action).expect("Failed to send suspend request");
+
+        rx.recv().expect("Failed to receive message").expect("Failed to suspend logging");
+
+        let content = std::fs::read_to_string(path.clone()).expect("Failed to open file for line counting");
+        let count2: Vec<&str> = content.lines().collect();
+        let count2 = count2.len();
+
+        assert_eq!(count + 1, count2);
     }
 }

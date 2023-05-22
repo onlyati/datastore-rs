@@ -119,6 +119,8 @@ impl LoggerManager {
             return Err(e);
         }
 
+        tracing::trace!("writing {} lines after resume", self.buffer.len());
+
         for item in &self.buffer {
             if let Some(file) = &mut self.file {
                 let line = format!("{} {}\n", item.0, item.1);
@@ -131,7 +133,10 @@ impl LoggerManager {
 
         self.buffer = Vec::new();
 
-        self.state = LogState::Open;
+        if let Err(e) = self.stop() {
+            return Err(e);
+        }
+        
         tracing::trace!("logging has resumed");
         return Ok(());
     }
