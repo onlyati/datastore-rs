@@ -40,7 +40,7 @@ pub mod utilities;
 /// For more details check `src/tests/logger.rs` file.
 pub struct LoggerManager {
     path: String,
-    state: LogState,
+    pub(crate) state: LogState,
     file: Option<BufWriter<File>>,
     buffer: Vec<(DateTime<Utc>, LogItem)>,
 }

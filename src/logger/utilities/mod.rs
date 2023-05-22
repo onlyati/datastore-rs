@@ -3,6 +3,8 @@ use std::{
     thread::JoinHandle,
 };
 
+use crate::logger::enums::LogState;
+
 use super::{
     enums::{LoggerAction, LoggerResponse},
     LoggerManager,
@@ -27,11 +29,13 @@ pub fn start_logger(path: &String) -> (Sender<LoggerAction>, JoinHandle<()>) {
                     Ok(_) => send_response!(sender, LoggerResponse::Ok),
                     Err(e) => send_response!(sender, LoggerResponse::Err(e)),
                 }
-                LoggerAction::Write(sender, lines) => {                    
-                    if let Err(e) = logger.start() {
-                        tracing::error!("failed to start logging: {}", e);
-                        send_response!(sender, LoggerResponse::Err(e));
-                        continue;
+                LoggerAction::Write(sender, lines) => {
+                    if logger.state != LogState::Suspended {
+                        if let Err(e) = logger.start()  {
+                            tracing::error!("failed to start logging: {}", e);
+                            send_response!(sender, LoggerResponse::Err(e));
+                            continue;
+                        }
                     }
 
                     for line in lines {
@@ -42,17 +46,21 @@ pub fn start_logger(path: &String) -> (Sender<LoggerAction>, JoinHandle<()>) {
                         }
                     }
 
-                    if let Err(e) = logger.stop() {
-                        tracing::error!("failed to stop logging: {}", e);
-                        send_response!(sender, LoggerResponse::Err(e));
+                    if logger.state != LogState::Suspended {
+                        if let Err(e) = logger.stop() {
+                            tracing::error!("failed to stop logging: {}", e);
+                            send_response!(sender, LoggerResponse::Err(e));
+                        }
                     }
 
                     send_response!(sender, LoggerResponse::Ok);
                 }
                 LoggerAction::WriteAsync(lines) => {
-                    if let Err(e) = logger.start() {
-                        tracing::error!("failed to start logging: {}", e);
-                        continue;
+                    if logger.state != LogState::Suspended {
+                        if let Err(e) = logger.start() {
+                            tracing::error!("failed to start logging: {}", e);
+                            continue;
+                        }
                     }
 
                     for line in lines {
@@ -62,8 +70,10 @@ pub fn start_logger(path: &String) -> (Sender<LoggerAction>, JoinHandle<()>) {
                         }
                     }
 
-                    if let Err(e) = logger.stop() {
-                        tracing::error!("failed to stop logging: {}", e);
+                    if logger.state != LogState::Suspended {
+                        if let Err(e) = logger.stop() {
+                            tracing::error!("failed to stop logging: {}", e);
+                        }
                     }
                 }
             }

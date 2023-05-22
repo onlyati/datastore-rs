@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test {
     use std::path::Path;
+    use std::sync::mpsc::channel;
     use std::sync::{Arc, Mutex};
 
     use crate::{logger::{
@@ -159,10 +160,32 @@ mod test {
         std::thread::sleep(std::time::Duration::new(1, 0)); // Wait some time that the async write will be finished
 
         // Check that log write really happened
-        let content = std::fs::read_to_string(path).expect("Failed to open file for line counting");
+        let content = std::fs::read_to_string(path.clone()).expect("Failed to open file for line counting");
         let count: Vec<&str> = content.lines().collect();
         let count = count.len();
 
         assert_eq!(1, count);
+
+        // Suspend the logging and check that no write happen
+        let (tx, rx) = channel();
+        let action = DatabaseAction::SuspendLog(tx);
+
+        sender.send(action).expect("Failed to send suspend request");
+
+        rx.recv().expect("Failed to receive message").expect("Failed to suspend logging");
+
+        let (tx, rx) = get_channel_for_set();
+        let action = DatabaseAction::Set(tx, "/root/test1".to_string(), "available".to_string());
+
+        sender.send(action).expect("Failed to send get requst");
+        rx.recv().expect("Failed to receive").expect("Failed to set the value");
+
+        std::thread::sleep(std::time::Duration::new(1, 0)); // Wait some time that the async write will be finished
+
+        let content = std::fs::read_to_string(path).expect("Failed to open file for line counting");
+        let count2: Vec<&str> = content.lines().collect();
+        let count2 = count2.len();
+
+        assert_eq!(count, count2);
     }
 }
