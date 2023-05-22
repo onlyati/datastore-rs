@@ -79,6 +79,7 @@ But it is also possible to use it as it is called directly if the application do
 use onlyati_datastore::controller::Database;
 use onlyati_datastore::enums::{KeyType, ValueType, ListType};
 
+// Logger and/or HookManager can be added with subscribe function
 let mut db = onlyati_datastore::controller::Database::new("root".to_string()).unwrap();
 
 let list: Vec<(KeyType, ValueType)> = vec![
