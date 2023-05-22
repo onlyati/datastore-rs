@@ -1,10 +1,11 @@
 //! Main component
 
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
+
 pub mod enums;
 pub mod types;
 pub mod utilities;
-
-use std::sync::mpsc::Sender;
 
 use crate::{hook::enums::HookManagerAction, logger::enums::LoggerAction};
 
@@ -22,7 +23,7 @@ pub struct Database {
     root: Table,
 
     /// Sender to HookManager
-    hook_sender: Option<Sender<HookManagerAction>>,
+    hook_sender: Option<Arc<Mutex<Sender<HookManagerAction>>>>,
 
     /// Logger function
     logger_sender: Option<Sender<LoggerAction>>,
@@ -67,13 +68,25 @@ impl Database {
     /// ```
     /// let (sender, _) = onlyati_datastore::hook::utilities::start_hook_manager();
     /// let mut db = onlyati_datastore::datastore::Database::new("root".to_string()).unwrap();
+    /// let sender = std::sync::Arc::new(std::sync::Mutex::new(sender));
     /// db.subscribe_to_hook_manager(sender);
     /// ```
-    pub fn subscribe_to_hook_manager(&mut self, sender: Sender<HookManagerAction>) {
+    pub fn subscribe_to_hook_manager(&mut self, sender: Arc<Mutex<Sender<HookManagerAction>>>) {
         tracing::trace!("subscribe to hook manager");
         self.hook_sender = Some(sender);
     }
 
+    /// Subscribe to Logger
+    ///
+    /// # Arguments
+    /// 1. `sender` - Sender to Logger thread
+    ///
+    /// # Examples
+    /// ```
+    /// let (sender, _) = onlyati_datastore::logger::utilities::start_logger(&"/tmp/datastore-tmp.txt".to_string());
+    /// let mut db = onlyati_datastore::datastore::Database::new("root".to_string()).unwrap();
+    /// db.subscribe_to_logger(sender);
+    /// ```
     pub fn subscribe_to_logger(&mut self, sender: Sender<LoggerAction>) {
         tracing::trace!("subscribe to logger");
         self.logger_sender = Some(sender);
@@ -141,6 +154,9 @@ impl Database {
             tracing::trace!("send alert to hook manager about '{}' key", key.get_key());
             if let ValueType::RecordPointer(value) = &value {
                 let action = HookManagerAction::Send(key.get_key().to_string(), value.to_string());
+
+                let sender = sender.lock().expect("Failed to lock hook manager sender");
+
                 sender
                     .send(action)
                     .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));

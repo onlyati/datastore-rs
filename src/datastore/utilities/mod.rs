@@ -2,6 +2,7 @@
 
 use std::{
     sync::mpsc::{Receiver, Sender},
+    sync::{Arc, Mutex},
     thread::JoinHandle,
 };
 
@@ -57,7 +58,7 @@ use super::{
 /// ```
 pub fn start_datastore(
     name: String,
-    hook_sender: Option<Sender<HookManagerAction>>,
+    hook_sender: Option<Arc<Mutex<Sender<HookManagerAction>>>>,
     logger_sender: Option<Sender<LoggerAction>>,
 ) -> (Sender<DatabaseAction>, JoinHandle<()>) {
     tracing::debug!("root element of database is '{}'", name);
@@ -349,7 +350,8 @@ pub(self) use hook_inactive;
 
 macro_rules! hook_send {
     ($sender:expr, $hook_sender:expr, $action:expr) => {
-        if let Err(e) = $hook_sender.send($action) {
+        let hook_sender = $hook_sender.lock().expect("Failed to lock logger");
+        if let Err(e) = hook_sender.send($action) {
             tracing::error!("Failed to send to hook manager: {}", e);
             $sender
                 .send(Err(ErrorKind::InternalError("".to_string())))

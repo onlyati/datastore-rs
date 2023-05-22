@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::io::prelude::*;
+    use std::{io::prelude::*, sync::{Arc, Mutex}};
 
     use crate::{
         datastore::{
@@ -128,6 +128,7 @@ mod tests {
     #[test]
     fn hook_manager_with_datastore() {
         let (sender, _) = utilities::start_hook_manager();
+        let sender = Arc::new(Mutex::new(sender));
         let (sender, _) =
             crate::datastore::utilities::start_datastore("root".to_string(), Some(sender), None);
 
