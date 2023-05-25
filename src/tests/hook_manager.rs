@@ -1,11 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use std::{io::prelude::*, sync::{Arc, Mutex}};
+    use std::io::prelude::*;
 
     use crate::{
         datastore::{
             enums::DatabaseAction,
-            utilities::{get_channel_for_hook_get, get_channel_for_hook_set, get_channel_for_hook_list, get_channel_for_hook_remove},
+            utilities::{
+                get_channel_for_hook_get, get_channel_for_hook_list, get_channel_for_hook_remove,
+                get_channel_for_hook_set,
+            },
         },
         hook::{utilities, HookManager},
     };
@@ -128,7 +131,6 @@ mod tests {
     #[test]
     fn hook_manager_with_datastore() {
         let (sender, _) = utilities::start_hook_manager();
-        let sender = Arc::new(Mutex::new(sender));
         let (sender, _) =
             crate::datastore::utilities::start_datastore("root".to_string(), Some(sender), None);
 
@@ -204,7 +206,11 @@ mod tests {
 
         // Test remove
         let (tx, rx) = get_channel_for_hook_remove();
-        let action = DatabaseAction::HookRemove(tx, "/root/arpa".to_string(), "http://127.0.0.1:3031".to_string());
+        let action = DatabaseAction::HookRemove(
+            tx,
+            "/root/arpa".to_string(),
+            "http://127.0.0.1:3031".to_string(),
+        );
         sender.send(action).expect("Failed to send hook request");
 
         let _result = rx
@@ -228,7 +234,11 @@ mod tests {
 
         // Test remove again
         let (tx, rx) = get_channel_for_hook_remove();
-        let action = DatabaseAction::HookRemove(tx, "/root/status".to_string(), "http://127.0.0.1:3031".to_string());
+        let action = DatabaseAction::HookRemove(
+            tx,
+            "/root/status".to_string(),
+            "http://127.0.0.1:3031".to_string(),
+        );
         sender.send(action).expect("Failed to send hook request");
 
         let _result = rx
@@ -241,9 +251,7 @@ mod tests {
         let action = DatabaseAction::HookGet(tx, "/root/status".to_string());
         sender.send(action).expect("Failed to send hook request");
 
-        let list_etalon = vec![
-            "http://127.0.0.1:3032".to_string(),
-        ];
+        let list_etalon = vec!["http://127.0.0.1:3032".to_string()];
 
         let result = rx
             .recv()
@@ -252,6 +260,5 @@ mod tests {
         assert_eq!("/root/status".to_string(), result.0);
         assert_eq!(1, result.1.len());
         assert_eq!(list_etalon, result.1);
-
     }
 }

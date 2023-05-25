@@ -36,16 +36,12 @@
 //! };
 //! use onlyati_datastore::hook::utilities::start_hook_manager;
 //! use onlyati_datastore::logger::utilities::start_logger;
-//! use std::sync::{Arc, Mutex};
 //!
 //! let (hook_sender, _) = start_hook_manager();
 //! let (logger_sender, _) = start_logger(&"/tmp/tmp-datastore-log.txt".to_string());
-//! 
-//! let hook_sender = Arc::new(Mutex::new(hook_sender));
-//! let logger_sender = Arc::new(Mutex::new(logger_sender));
 //!
 //! // Start a new database with active hook manager
-//! let (sender, _) = start_datastore("root".to_string(), Some(hook_sender.clone()), Some(logger_sender));
+//! let (sender, _) = start_datastore("root".to_string(), Some(hook_sender), Some(logger_sender));
 //!
 //! // Send a POST request to specified address when records updated within /root/status
 //! let (tx, rx) = utilities::get_channel_for_hook_set();

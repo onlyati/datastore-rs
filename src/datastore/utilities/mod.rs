@@ -2,7 +2,6 @@
 
 use std::{
     sync::mpsc::{Receiver, Sender},
-    sync::{Arc, Mutex},
     thread::JoinHandle,
 };
 
@@ -58,8 +57,8 @@ use super::{
 /// ```
 pub fn start_datastore(
     name: String,
-    hook_sender: Option<Arc<Mutex<Sender<HookManagerAction>>>>,
-    logger_sender: Option<Arc<Mutex<Sender<LoggerAction>>>>,
+    hook_sender: Option<Sender<HookManagerAction>>,
+    logger_sender: Option<Sender<LoggerAction>>,
 ) -> (Sender<DatabaseAction>, JoinHandle<()>) {
     tracing::debug!("root element of database is '{}'", name);
     let (tx, rx) = std::sync::mpsc::channel::<DatabaseAction>();
@@ -350,8 +349,7 @@ pub(self) use hook_inactive;
 
 macro_rules! hook_send {
     ($sender:expr, $hook_sender:expr, $action:expr) => {
-        let hook_sender = $hook_sender.lock().expect("Failed to lock logger");
-        if let Err(e) = hook_sender.send($action) {
+        if let Err(e) = $hook_sender.send($action) {
             tracing::error!("Failed to send to hook manager: {}", e);
             $sender
                 .send(Err(ErrorKind::InternalError("".to_string())))
@@ -385,8 +383,7 @@ pub(self) use send_response;
 
 macro_rules! send_response_with_mutex_sender {
     ($sender:expr, $value:expr) => {{
-        let sender = $sender.lock().expect("Failed to lock sender");
-        sender
+        $sender
             .send($value)
             .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
     }};
@@ -395,8 +392,7 @@ pub(self) use send_response_with_mutex_sender;
 
 macro_rules! write_log {
     ($logger_sender:expr, $messages:expr) => {
-        let sender = $logger_sender.lock().expect("Failed to lock sender");
-        sender
+        $logger_sender
             .send(LoggerAction::WriteAsync($messages))
             .unwrap_or_else(|e| tracing::error!("{}", e));
     };
