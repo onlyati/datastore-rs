@@ -162,6 +162,40 @@ impl Database {
         return Ok(());
     }
 
+    /// Send a trigger to HookManager, record is not created like at `insert` but it can trigger and send some hooks out
+    /// 
+    /// # Arguments
+    /// 
+    /// 1. `key` - Unique key for data
+    /// 1. `value` - Value that is assigned for the key
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
+    ///
+    /// let mut db = Database::new("root".to_string()).unwrap();
+    ///
+    /// let result = db.trigger(KeyType::Record("/root/network/dns-stats".to_string()), ValueType::RecordPointer("ok".to_string()));
+    /// ```
+    pub fn trigger(&self, key: KeyType, value: ValueType) -> Result<(), ErrorKind> {
+        match &self.hook_sender {
+            Some(sender) => {
+                tracing::trace!("send trigger to hook manager about '{}' key", key.get_key());
+                if let ValueType::RecordPointer(value) = &value {
+                    let action = HookManagerAction::Send(key.get_key().to_string(), value.to_string());
+    
+                    sender
+                        .send(action)
+                        .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
+                }
+                return Ok(());
+            },
+            None => return Err(ErrorKind::InactiveHookManager),
+        }
+    }
+
     /// Get the value of a key and return with a copy of it. If not found return with error.
     ///
     /// # Arguments

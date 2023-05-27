@@ -51,6 +51,9 @@ pub enum DatabaseAction {
     /// List keys from a route
     ListKeys(Sender<ResultWithList>, String, ListType),
 
+    /// Send trigger to HookManager
+    Trigger(Sender<ResultWithoutResult>, String, String),
+
     /// Set new hook
     HookSet(Sender<ResultWithoutResult>, Prefix, Link),
 
@@ -78,6 +81,7 @@ impl std::fmt::Display for DatabaseAction {
             Self::DeleteKey(_, key) => format!("RemKey[{}]", key),
             Self::DeleteTable(_, key) => format!("RemPath[{}]", key),
             Self::ListKeys(_, key, r#type) => format!("ListKeys[{}, {}]", key, r#type),
+            Self::Trigger(_, key, value) => format!("Trigger[{}, {}]", key, value),
             Self::HookSet(_, prefix, link) => format!("HookSet[{}, {}]", prefix, link),
             Self::HookGet(_, prefix) => format!("HookGet[{}]", prefix),
             Self::HookRemove(_, prefix, link) => format!("HookRemove[{}, {}]", prefix, link),
