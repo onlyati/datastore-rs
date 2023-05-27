@@ -137,6 +137,20 @@ pub fn start_datastore(
                         write_log!(sender, vec![LogItem::ListKeys(key)]);
                     }
                 }
+                // Trigger HookManager
+                DatabaseAction::Trigger(sender, key, value) => {
+                    match db.trigger(
+                        KeyType::Record(key.clone()),
+                        ValueType::RecordPointer(value.clone()),
+                    ) {
+                        Ok(_) => send_response!(sender, Ok(())),
+                        Err(e) => send_response!(sender, Err(e)),
+                    }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::Trigger(key, value)]);
+                    }
+                }
                 // Set hook
                 DatabaseAction::HookSet(sender, prefix, link) => {
                     match &db.hook_sender {

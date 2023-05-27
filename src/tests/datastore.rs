@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::io::prelude::*;
+    use std::{io::prelude::*, sync::mpsc::channel};
 
     use crate::{
         datastore::{
@@ -48,18 +48,19 @@ mod tests {
 
     #[test]
     fn server_test() {
-        let (sender, _) = start_datastore("root".to_string(), None, None);
+        let (hook_sender, _) = crate::hook::utilities::start_hook_manager();
+        let (sender, _) = start_datastore("root".to_string(), Some(hook_sender), None);
 
         // Add a new pair
         let (tx, rx) = utilities::get_channel_for_set();
         let set_action = DatabaseAction::Set(tx, "/root/network".to_string(), "ok".to_string());
         sender.send(set_action).expect("Failed to send the request");
-        rx.recv().unwrap().unwrap();
+        rx.recv().expect("Failed to send action").expect("Failed to set value");
 
         let (tx, rx) = utilities::get_channel_for_set();
         let set_action = DatabaseAction::Set(tx, "/root/network".to_string(), "nok".to_string());
         sender.send(set_action).expect("Failed to send the request");
-        rx.recv().unwrap().unwrap();
+        rx.recv().expect("Failed to send action").expect("Failed to set value");
 
         // Get the pair
         let (tx, rx) = utilities::get_channel_for_get();
@@ -73,6 +74,25 @@ mod tests {
             .expect("Failed to receive message")
             .expect("Failed to get data");
         assert_eq!(ValueType::RecordPointer("nok".to_string()), data);
+
+        let (tx, rx) = channel();
+        let trigger_action = DatabaseAction::Trigger(tx, "/root/new-test".to_string(), "placeholder".to_string());
+        sender.send(trigger_action).expect("Failed to send the request");
+        rx.recv().expect("Failed to send action").expect("Failed to send trigger value");
+
+        let (tx, rx) = channel();
+        let get_action = DatabaseAction::Get(tx, "/root/new-test".to_string());
+        sender.send(get_action).expect("Failed to send the request");
+        
+        match rx.recv().expect("Failed to receive message") {
+            Ok(_) => panic!("This key should not exist"),
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => assert_eq!("Specified key does not exist", msg),
+                e => panic!("This is not a correct panic: {}", e),
+            },
+        }
+        
+        
     }
 
     #[test]
