@@ -41,6 +41,7 @@ use types::{Hooks, Prefix};
 pub struct HookManager {
     /// List about hooks
     hooks: BTreeMap<Prefix, Hooks>,
+    client: reqwest::Client,
 }
 
 impl HookManager {
@@ -48,6 +49,7 @@ impl HookManager {
     pub fn new() -> Self {
         return HookManager {
             hooks: BTreeMap::new(),
+            client: reqwest::Client::new(),
         };
     }
 
@@ -160,7 +162,6 @@ impl HookManager {
     /// 
     /// ```
     pub async fn execute_hooks(&self, key: &String, value: &String) -> Option<i32> {
-        let client = reqwest::Client::new();
         let mut body = HashMap::new();
         body.insert("key", key);
         body.insert("value", value);
@@ -173,7 +174,7 @@ impl HookManager {
                 for link in links {
                     tracing::trace!("send POST request to '{}' link", link);
                     counter += 1;
-                    match client.post(link).json(&body).send().await {
+                    match self.client.post(link).json(&body).send().await {
                         Err(e) => tracing::error!("Error: HTTP request with hook but: {}", e),
                         Ok(resp) => tracing::trace!("{:?}", resp),
                     };
