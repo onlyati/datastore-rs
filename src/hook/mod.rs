@@ -37,6 +37,7 @@ use types::{Hooks, Prefix};
 /// let result = manager.list(&"/root/no_exist".to_string());
 /// assert_eq!(0, result.len());
 /// ```
+#[derive(Clone)]
 pub struct HookManager {
     /// List about hooks
     hooks: BTreeMap<Prefix, Hooks>,

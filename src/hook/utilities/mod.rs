@@ -26,51 +26,52 @@ pub fn start_hook_manager() -> (Sender<HookManagerAction>, JoinHandle<()>) {
     let (tx, rx) = channel::<HookManagerAction>();
     let mut manager = HookManager::new();
 
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("Failed to allocate runtime for HookManager");
-
     let thread = std::thread::spawn(move || {
-        rt.block_on(async move {
-            loop {
-                match rx.recv() {
-                    Ok(request) => match request {
-                        HookManagerAction::Set(sender, prefix, target) => {
-                            match manager.add(prefix, target) {
-                                Ok(_) => send_response!(sender, HookManagerResponse::Ok),
-                                Err(e) => send_response!(sender, e),
-                            }
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to allocate runtime for HookManager");
+
+        loop {
+            match rx.recv() {
+                Ok(request) => match request {
+                    HookManagerAction::Set(sender, prefix, target) => {
+                        match manager.add(prefix, target) {
+                            Ok(_) => send_response!(sender, HookManagerResponse::Ok),
+                            Err(e) => send_response!(sender, e),
                         }
-                        HookManagerAction::Remove(sender, prefix, target) => {
-                            match manager.remove(prefix, target) {
-                                Ok(_) => send_response!(sender, HookManagerResponse::Ok),
-                                Err(e) => send_response!(sender, e),
-                            }
+                    }
+                    HookManagerAction::Remove(sender, prefix, target) => {
+                        match manager.remove(prefix, target) {
+                            Ok(_) => send_response!(sender, HookManagerResponse::Ok),
+                            Err(e) => send_response!(sender, e),
                         }
-                        HookManagerAction::Get(sender, prefix) => match manager.get(&prefix) {
-                            Some(hooks) => {
-                                send_response!(sender, HookManagerResponse::Hook(prefix, hooks))
-                            }
-                            None => send_response!(
-                                sender,
-                                HookManagerResponse::Error("Not found".to_string())
-                            ),
-                        },
-                        HookManagerAction::List(sender, prefix) => {
-                            send_response!(
-                                sender,
-                                HookManagerResponse::HookList(manager.list(&prefix))
-                            );
+                    }
+                    HookManagerAction::Get(sender, prefix) => match manager.get(&prefix) {
+                        Some(hooks) => {
+                            send_response!(sender, HookManagerResponse::Hook(prefix, hooks))
                         }
-                        HookManagerAction::Send(test_key, value) => {
-                            manager.execute_hooks(&test_key, &value).await;
-                        }
+                        None => send_response!(
+                            sender,
+                            HookManagerResponse::Error("Not found".to_string())
+                        ),
                     },
-                    Err(e) => panic!("Hook manager failed: {}", e),
-                }
+                    HookManagerAction::List(sender, prefix) => {
+                        send_response!(
+                            sender,
+                            HookManagerResponse::HookList(manager.list(&prefix))
+                        );
+                    }
+                    HookManagerAction::Send(test_key, value) => {
+                        let manager = manager.clone();
+                        rt.spawn(async move {
+                            manager.execute_hooks(&test_key, &value).await;
+                        });
+                    }
+                },
+                Err(e) => panic!("Hook manager failed: {}", e),
             }
-        });
+        }
     });
 
     return (tx, thread);
