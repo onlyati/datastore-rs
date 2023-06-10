@@ -26,7 +26,7 @@ pub fn start_hook_manager() -> (Sender<HookManagerAction>, JoinHandle<()>) {
     let (tx, rx) = channel::<HookManagerAction>();
     let mut manager = HookManager::new();
 
-    let rt = tokio::runtime::Builder::new_current_thread()
+    let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("Failed to allocate runtime for HookManager");
