@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::VecDeque;
 use std::fmt::Display;
 
 ///
@@ -11,20 +12,34 @@ pub enum KeyType {
 
     /// Value will be a string
     Record(String),
+
+    /// Value will be a queue
+    Queue(String),
 }
 
 impl KeyType {
     /// Tells that key type is `KeyType::Table`
     pub fn is_table(&self) -> bool {
         return match self {
-            KeyType::Record(_) => false,
             KeyType::Table(_) => true,
+            _ => false,
         };
     }
 
     /// Tells that key type is `KeyType::Record`
     pub fn is_record(&self) -> bool {
-        return !self.is_table();
+        return match self {
+            KeyType::Record(_) => true,
+            _ => false,
+        };
+    }
+
+    /// Tells that key type is `KeyType::Queue`
+    pub fn is_queue(&self) -> bool {
+        return match self {
+            KeyType::Queue(_) => true,
+            _ => false,
+        };
     }
 
     /// Return with the record name or the table name
@@ -32,6 +47,7 @@ impl KeyType {
         return match self {
             KeyType::Record(key) => key,
             KeyType::Table(key) => key,
+            KeyType::Queue(key) => key,
         };
     }
 
@@ -40,6 +56,7 @@ impl KeyType {
         return match self {
             KeyType::Record(_) => "r",
             KeyType::Table(_) => "t",
+            KeyType::Queue(_) => "q",
         };
     }
 }
@@ -49,6 +66,7 @@ impl Display for KeyType {
         let message = match self {
             Self::Table(key) => ("t", key),
             Self::Record(key) => ("r", key),
+            Self::Queue(key) => ("q", key),
         };
         return write!(f, "{} {}", message.0, message.1);
     }
@@ -75,7 +93,7 @@ impl PartialOrd for KeyType {
 
 impl<'a> PartialEq for KeyType {
     fn eq(&self, other: &Self) -> bool {
-        if (self.is_record() && other.is_record()) || (self.is_table() && other.is_table()) {
+        if (self.is_record() && other.is_record()) || (self.is_table() && other.is_table() || (self.is_queue() && other.is_queue())) {
             if self.get_key() == other.get_key() {
                 return true;
             }
@@ -94,26 +112,41 @@ pub enum ValueType {
 
     /// This is a record pointer, belongs to `KeyType::Record`
     RecordPointer(String),
+
+    /// This is a queue pointer, belongs to `KeyType::Queue`
+    QueuePointer(VecDeque<String>),
 }
 
 impl ValueType {
     /// Tells that it is a `ValueType::TablePointer`
     pub fn is_table(&self) -> bool {
         return match self {
-            ValueType::RecordPointer(_) => false,
             ValueType::TablePointer(_) => true,
+            _ => false,
         };
     }
 
     /// Tells that it is a `ValueType::RecordPointer`
     pub fn is_record(&self) -> bool {
-        return !self.is_table();
+        return match self {
+            ValueType::RecordPointer(_) => true,
+            _ => false,
+        };
+    }
+
+    /// Tells that it is a `ValueType::QueuePointer`
+    pub fn is_queue(&self) -> bool {
+        return match self {
+            ValueType::QueuePointer(_) => true,
+            _ => false,
+        };
     }
 
     pub fn get_value(&self) -> &str {
         return match self {
             Self::TablePointer(_) => "TablePointer",
             Self::RecordPointer(key) => &key[..],
+            Self::QueuePointer(_) => "QueuePointer",
         };
     }
 }

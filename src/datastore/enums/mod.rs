@@ -71,6 +71,12 @@ pub enum DatabaseAction {
 
     /// Command to resume the logging
     ResumeLog(Sender<ResultWithoutResult>),
+
+    /// Push to a queue
+    Push(Sender<ResultWithoutResult>, String, String),
+
+    /// Pop from queue
+    Pop(Sender<ResultWithResult>, String),
 }
 
 impl std::fmt::Display for DatabaseAction {
@@ -88,6 +94,8 @@ impl std::fmt::Display for DatabaseAction {
             Self::HookList(_, prefix) => format!("HookList[{}]", prefix),
             Self::SuspendLog(_) => format!("SuspendLog"),
             Self::ResumeLog(_) => format!("ResumeLog"),
+            Self::Push(_, key, _) => format!("Push[{}]", key),
+            Self::Pop(_, key) => format!("Pop[{}]", key),
         };
         return write!(f, "{}", text);
     }

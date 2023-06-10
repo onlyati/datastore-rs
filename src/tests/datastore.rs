@@ -179,6 +179,17 @@ mod tests {
             Ok(_) => panic!("Returned with Ok but it should have with Err"),
         }
 
+        // Error #8
+        match db.pop(KeyType::Record("/root/asd".to_string())) {
+            Err(e) => match e {
+                ErrorKind::InvalidKey(msg) => {
+                    assert_eq!("Specified key does not exist", msg)
+                }
+                _ => panic!("Should have returned InvalidKey instead {:?}", e),
+            },
+            Ok(_) => panic!("Returned with Ok but it should have with Err"),
+        }
+
         return Ok(());
     }
 
@@ -304,6 +315,43 @@ mod tests {
 
         let response = db.get(KeyType::Record("/root/status/sub1".to_string()));
         assert_eq!(true, response.is_err());
+
+        // Add same name record and table pointer than queue to test that it is not a problem
+        let response = db.insert(
+            KeyType::Record("/root/tickets".to_string()),
+            ValueType::RecordPointer("okay".to_string()),
+        );
+        assert_eq!(true, response.is_ok());
+
+        let response = db.insert(
+            KeyType::Record("/root/tickets/forward_to".to_string()),
+            ValueType::RecordPointer("127.0.0.1".to_string()),
+        );
+        assert_eq!(true, response.is_ok());
+
+        // Test queue
+        let response = db.push(KeyType::Record("/root/tickets/open".to_string()), "SINC100".to_string());
+        assert_eq!(true, response.is_ok());
+
+        let response = db.push(KeyType::Record("/root/tickets/open".to_string()), "SINC101".to_string());
+        assert_eq!(true, response.is_ok());
+
+        let response = db.pop(KeyType::Record("/root/tickets/open".to_string())).expect("Pop should work");
+        assert_eq!("SINC100".to_string(), response);
+
+        let response = db.pop(KeyType::Record("/root/tickets/open".to_string())).expect("Pop should work");
+        assert_eq!("SINC101".to_string(), response);
+
+        let response = db.pop(KeyType::Record("/root/tickets/open".to_string()));
+        assert_eq!(true, response.is_err());
+
+        // Test earlier gets again
+        let value = db.get(KeyType::Record("/root/tickets".to_string())).expect("Failed to fetch key after queue actions");
+        assert_eq!(ValueType::RecordPointer("okay".to_string()), value);
+
+        let value = db.get(KeyType::Record("/root/tickets/forward_to".to_string())).expect("Failed to fetch key after queue actions");
+        assert_eq!(ValueType::RecordPointer("127.0.0.1".to_string()), value);
+
     }
 
     #[test]

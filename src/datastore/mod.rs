@@ -1,6 +1,6 @@
 //! Main component
 
-use std::sync::mpsc::Sender;
+use std::{collections::VecDeque, sync::mpsc::Sender};
 
 pub mod enums;
 pub mod types;
@@ -145,8 +145,8 @@ impl Database {
         }
 
         let record_key = KeyType::Record(last_route.to_string());
-        tracing::trace!("set request is done for '{}'", key.get_key());
         table.insert(record_key, value.clone());
+        tracing::trace!("set request is done for '{}'", key.get_key());
 
         if let Some(sender) = &self.hook_sender {
             tracing::trace!("send alert to hook manager about '{}' key", key.get_key());
@@ -162,15 +162,110 @@ impl Database {
         return Ok(());
     }
 
-    /// Send a trigger to HookManager, record is not created like at `insert` but it can trigger and send some hooks out
-    /// 
+    /// Push a value into a queue. Return with nothing if the insert was successful. Else with an error code.
+    ///
     /// # Arguments
-    /// 
+    /// 1. `key` - Unique key for data
+    /// 1. `value` - Value that will be pushed to queue
+    ///
+    /// # Example
+    /// ```
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
+    ///
+    /// let mut db = Database::new("root".to_string()).unwrap();
+    ///
+    /// let result = db.push(KeyType::Record("/root/ticket/open".to_string()), "SINC100".to_string()).expect("Failed to push");
+    /// let result = db.push(KeyType::Record("/root/ticket/open".to_string()), "SINC101".to_string()).expect("Failed to push");
+    /// ```
+    pub fn push(&mut self, key: KeyType, value: String) -> Result<(), ErrorKind> {
+        tracing::trace!("push request is performed for '{}'", key.get_key());
+        let key = match key {
+            KeyType::Record(key) => key,
+            _ => {
+                return Err(ErrorKind::InvalidKey(
+                    "Parameter must be a Record type".to_string(),
+                ));
+            }
+        };
+
+        let key_routes = utilities::internal::validate_key(&key[..], &self.name)?;
+
+        let mut table = Box::new(&mut self.root);
+        let last_route = key_routes[key_routes.len() - 1];
+        let mut route_index: usize = 0;
+        let mut current_route = key_routes[route_index].to_string();
+
+        while last_route != current_route {
+            let temp_key = KeyType::Table(current_route);
+            table
+                .entry(temp_key.clone())
+                .or_insert(ValueType::TablePointer(Table::new()));
+
+            *table = match table.get_mut(&temp_key) {
+                Some(item) => match item {
+                    ValueType::TablePointer(sub_table) => sub_table,
+                    _ => {
+                        tracing::error!("wow, this should not happen a table pointer should be here not a record pointer");
+                        return Err(ErrorKind::InternalError(
+                            "This should not have happen".to_string(),
+                        ));
+                    }
+                },
+                _ => {
+                    tracing::error!("wow, this should not happen table must exist");
+                    return Err(ErrorKind::InternalError(
+                        "This should not have happen".to_string(),
+                    ));
+                }
+            };
+
+            route_index += 1;
+            current_route = key_routes[route_index].to_string();
+        }
+
+        match table.get_mut(&KeyType::Queue(last_route.to_string())) {
+            Some(elem) => match elem {
+                ValueType::QueuePointer(queue) => {
+                    queue.push_back(value.clone());
+                    tracing::trace!("push request is done for '{}'", key);
+
+                    if let Some(sender) = &self.hook_sender {
+                        tracing::trace!("send alert to hook manager about '{}' key", key);
+                        let action = HookManagerAction::Send(key, value.clone());
+
+                        sender
+                            .send(action)
+                            .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
+                    }
+                }
+                _ => {
+                    tracing::trace!("queue '{}' does not exist", key);
+                    return Err(ErrorKind::InvalidKey(
+                        "Specified key does not exist".to_string(),
+                    ));
+                }
+            },
+            None => {
+                let new_qeue = KeyType::Queue(last_route.to_string());
+                let mut queue = VecDeque::new();
+                queue.push_back(value);
+                table.insert(new_qeue, ValueType::QueuePointer(queue));
+            }
+        }
+
+        return Ok(());
+    }
+
+    /// Send a trigger to HookManager, record is not created like at `insert` but it can trigger and send some hooks out
+    ///
+    /// # Arguments
+    ///
     /// 1. `key` - Unique key for data
     /// 1. `value` - Value that is assigned for the key
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use onlyati_datastore::datastore::Database;
     /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
@@ -184,14 +279,15 @@ impl Database {
             Some(sender) => {
                 tracing::trace!("send trigger to hook manager about '{}' key", key.get_key());
                 if let ValueType::RecordPointer(value) = &value {
-                    let action = HookManagerAction::Send(key.get_key().to_string(), value.to_string());
-    
+                    let action =
+                        HookManagerAction::Send(key.get_key().to_string(), value.to_string());
+
                     sender
                         .send(action)
                         .unwrap_or_else(|e| tracing::error!("Error during send: {}", e));
                 }
                 return Ok(());
-            },
+            }
             None => return Err(ErrorKind::InactiveHookManager),
         }
     }
@@ -214,20 +310,23 @@ impl Database {
     /// ```
     pub fn get(&self, key: KeyType) -> Result<ValueType, ErrorKind> {
         tracing::trace!("get request is performed for '{}'", key.get_key());
-        if let KeyType::Table(_) = key {
-            return Err(ErrorKind::InvalidKey(
-                "Parameter must be a Record type".to_string(),
-            ));
-        }
+        let key = match key {
+            KeyType::Record(key) => key,
+            _ => {
+                return Err(ErrorKind::InvalidKey(
+                    "Parameter must be a Record type".to_string(),
+                ));
+            }
+        };
 
-        let key_routes = utilities::internal::validate_key(key.get_key(), &self.name)?;
+        let key_routes = utilities::internal::validate_key(&key[..], &self.name)?;
         let table = match utilities::internal::find_table(
             Box::new(&self.root),
             key_routes[..key_routes.len() - 1].to_vec(),
         ) {
             Some(table) => table,
             None => {
-                tracing::trace!("key '{}' does not exist", key.get_key());
+                tracing::trace!("key '{}' does not exist", key);
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
                 ));
@@ -238,11 +337,102 @@ impl Database {
 
         match table.get(&find_key) {
             Some(value) => {
-                tracing::trace!("get request is done for '{}'", key.get_key());
+                tracing::trace!("get request is done for '{}'", key);
                 return Ok(value.clone());
             }
             None => {
-                tracing::trace!("key '{}' does not exist", key.get_key());
+                tracing::trace!("key '{}' does not exist", key);
+                return Err(ErrorKind::InvalidKey(
+                    "Specified key does not exist".to_string(),
+                ));
+            }
+        }
+    }
+
+    /// Pop value from queue. If not found return with error.
+    ///
+    /// # Arguments
+    /// 1. `key` - Unique key that has to be found
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use onlyati_datastore::datastore::Database;
+    /// use onlyati_datastore::datastore::enums::pair::{KeyType, ValueType};
+    ///
+    /// let mut db = Database::new("root".to_string()).unwrap();
+    ///
+    /// let result = db.push(KeyType::Record("/root/ticket/open".to_string()), "SINC100".to_string()).expect("Failed to push");
+    /// let result = db.push(KeyType::Record("/root/ticket/open".to_string()), "SINC101".to_string()).expect("Failed to push");
+    ///
+    /// let ticket = db.pop(KeyType::Record("/root/ticket/open".to_string())).expect("Failed to pop");
+    /// assert_eq!("SINC100".to_string(), ticket);
+    ///
+    /// let ticket = db.pop(KeyType::Record("/root/ticket/open".to_string())).expect("Failed to pop");
+    /// assert_eq!("SINC101".to_string(), ticket);
+    ///
+    /// let ticket = db.pop(KeyType::Record("/root/ticket/open".to_string()));
+    /// assert_eq!(true, ticket.is_err());
+    /// ```
+    pub fn pop(&mut self, key: KeyType) -> Result<String, ErrorKind> {
+        tracing::trace!("get request is performed for '{}'", key.get_key());
+        let key = match key {
+            KeyType::Record(key) => key,
+            _ => {
+                return Err(ErrorKind::InvalidKey(
+                    "Parameter must be a Record type".to_string(),
+                ));
+            }
+        };
+
+        let key_routes = utilities::internal::validate_key(&key[..], &self.name)?;
+        let table = match utilities::internal::find_table_mut(
+            Box::new(&mut self.root),
+            key_routes[..key_routes.len() - 1].to_vec(),
+        ) {
+            Some(table) => table,
+            None => {
+                tracing::trace!("key '{}' does not exist", key);
+                return Err(ErrorKind::InvalidKey(
+                    "Specified key does not exist".to_string(),
+                ));
+            }
+        };
+
+        let find_key = KeyType::Queue(key_routes[key_routes.len() - 1].to_string());
+
+        match table.get_mut(&find_key) {
+            Some(value) => {
+                tracing::trace!("get request is done for '{}'", key);
+                match value {
+                    ValueType::QueuePointer(queue) => {
+                        let ret_value = match queue.pop_front() {
+                            Some(v) => v,
+                            None => {
+                                tracing::error!("queue was not cleanup before, try now");
+                                table.remove(&find_key);
+                                return Err(ErrorKind::InvalidKey(
+                                    "Specified key does not exist".to_string(),
+                                ));
+                            }
+                        };
+
+                        if queue.len() == 0 {
+                            table.remove(&find_key);
+                        }
+
+                        return Ok(ret_value);
+                    }
+                    _ => {
+                        tracing::error!("this should not be happen, search was to a Queue but something else was found");
+                        return Err(ErrorKind::InvalidKey(
+                            "Specified key does not exist".to_string(),
+                        ));
+                    }
+                }
+            }
+            None => {
+                tracing::trace!("key '{}' does not exist", key);
                 return Err(ErrorKind::InvalidKey(
                     "Specified key does not exist".to_string(),
                 ));
@@ -280,21 +470,21 @@ impl Database {
             "list keys request is performed for '{}'",
             key_prefix.get_key()
         );
-        if let KeyType::Table(_) = key_prefix {
-            return Err(ErrorKind::InvalidKey(
-                "Parameter must be a Record type".to_string(),
-            ));
-        }
+        let key_prefix = match key_prefix {
+            KeyType::Record(key) => key,
+            _ => {
+                return Err(ErrorKind::InvalidKey(
+                    "Parameter must be a Record type".to_string(),
+                ));
+            }
+        };
 
         // Find the base table
-        let key_routes = utilities::internal::validate_key(key_prefix.get_key(), &self.name)?;
+        let key_routes = utilities::internal::validate_key(&key_prefix[..], &self.name)?;
         let table = match utilities::internal::find_table(Box::new(&self.root), key_routes) {
             Some(table) => table,
             None => {
-                tracing::trace!(
-                    "get request is failed due to no '{}' key exist",
-                    key_prefix.get_key()
-                );
+                tracing::trace!("get request is failed due to no '{}' key exist", key_prefix);
                 return Err(ErrorKind::InvalidKey(
                     "Specified route does not exist".to_string(),
                 ));
@@ -302,10 +492,9 @@ impl Database {
         };
 
         // Get the information
-        let result =
-            utilities::internal::display_tables(table, &key_prefix.get_key().to_string(), &level)?;
+        let result = utilities::internal::display_tables(table, &key_prefix, &level)?;
 
-        tracing::trace!("list keys request is done for '{}'", key_prefix.get_key());
+        tracing::trace!("list keys request is done for '{}'", key_prefix);
         return Ok(result);
     }
 

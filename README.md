@@ -1,28 +1,11 @@
 # OnlyAti.Datastore :construction: Under development :construction:
  
-This a very simple key-value data store. Pairs are stored tables according their key name.
-Each key is split for more routes at '/' character and this route lead to the place of key.
+This a key-value in-memory database. This package has ability to:
+- Run Datastore to work with key-value pairs (string and queue value types)
+- Run Hook Managaer that are triggerd if specific keys has been update
+- Run Logger that logging the actions on async way
 
-Simple visual representaion with the following keys:
-- /root/status/sub1
-- /root/status/sub2
-- /root/network/dns
-- /root/network/www
-```plain
-+---------+
-| status  | ---------> +------+
-+---------+            | sub1 |
-| network | ------+    +------+
-+---------+       |    | sub2 |
-   root           |    +------+
-                  |     status
-                  |
-                  +--> +-----+
-                       | dns |
-                       +-----+
-                       | www |
-                       +-----+
-```
+There is an application that wrap it with extra functions for usage: [Olympus@Hermes](https://git.thinkaboutit.tech/PublicProjects/olympus-hermes)
 
 ## Sample code to use the built-in thread server
 
