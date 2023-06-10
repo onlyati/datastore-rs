@@ -13,7 +13,9 @@ pub enum LogItem {
     GetHook(String),
     RemHook(String, String),
     ListHooks(String),
-    HookExecute(String, Vec<String>)
+    HookExecute(String, Vec<String>),
+    Push(String, String),
+    Pop(String),
 }
 
 impl std::fmt::Display for LogItem {
@@ -30,6 +32,8 @@ impl std::fmt::Display for LogItem {
             Self::RemHook(prefix, link) => format!("RemHook [ '{}', '{}' ]", prefix, link),
             Self::ListHooks(prefix) => format!("ListHooks [ '{}' ]", prefix),
             Self::HookExecute(prefix, links) => format!("HookExecute [ '{}', '{:?}' ]", prefix, links),
+            Self::Push(key, value) => format!("Push [ '{}', '{}' ]", key, value),
+            Self::Pop(key) => format!("Pop [ '{}' ]", key),
         };
         return write!(f, "{}", text);
     }

@@ -24,6 +24,8 @@ Simple visual representaion with the following keys:
                        +-----+
 ```
 
+There is an application that wrap it with extra functions for usage: [Olympus@Hermes](https://git.thinkaboutit.tech/PublicProjects/olympus-hermes)
+
 ## Sample code to use the built-in thread server
 
 There is a provided function that creates a thread, initialize database then return with a `std::sync::mpsc::Sender` so other thread can send request.

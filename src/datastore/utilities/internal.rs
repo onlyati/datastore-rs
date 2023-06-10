@@ -106,6 +106,11 @@ pub(crate) fn display_tables<'a>(
 
                 result.append(&mut temp);
             }
+            KeyType::Queue(key) => {
+                let new_key = format!("{}/{}", key_prefix.clone(), key);
+                let new_key = KeyType::Queue(new_key);
+                result.push(new_key);
+            }
         }
     }
 

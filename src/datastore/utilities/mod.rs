@@ -304,6 +304,28 @@ pub fn start_datastore(
                         }
                     }
                 }
+                // Push to a queue
+                DatabaseAction::Push(sender, key, value) => {
+                    match db.push(KeyType::Record(key.clone()), value.clone()) {
+                        Ok(_) => send_response!(sender, Ok(())),
+                        Err(e) => send_response!(sender, Err(e)),
+                    }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::Push(key, value)]);
+                    }
+                }
+                // Pop from queue
+                DatabaseAction::Pop(sender, key) => {
+                    match db.pop(KeyType::Record(key.clone())) {
+                        Ok(value) => send_response!(sender, Ok(ValueType::RecordPointer(value))),
+                        Err(e) => send_response!(sender, Err(e)),
+                    }
+
+                    if let Some(sender) = &db.logger_sender {
+                        write_log!(sender, vec![LogItem::Pop(key)]);
+                    }
+                }
             }
         }
     });
